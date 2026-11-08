@@ -37,13 +37,13 @@ jobs:
           print(y[0]['id'])
           PY
           )"
-          query="SELECT COUNT() AS received FROM round_timer_error_events WHERE timestamp > NOW() - INTERVAL '2' HOUR FORMAT JSON"
+          query="SELECT COUNT() AS received FROM round_timer_error_events WHERE timestamp > NOW() - INTERVAL '24' HOUR AND blob1 = 'app_error' AND blob2 = 'UNKNOWN' AND blob4 = '0.8.5' FORMAT JSON"
           sql_status="$(curl --silent --show-error --max-time 30 --output "$result" --write-out '%{http_code}' \
             -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
             --data "$query" \
             "https://api.cloudflare.com/client/v4/accounts/$account_id/analytics_engine/sql")"
           if [[ "$sql_status" != 200 ]]; then
-            echo "SQL read: unavailable (HTTP $sql_status). Need a separate restricted Account Analytics Read token to verify persisted data automatically."
+            echo "SQL read: unavailable (HTTP $sql_status). Could not confirm test event; check Cloudflare account permissions."
             exit 0
           fi
           python3 - "$result" <<'PY'
@@ -52,7 +52,7 @@ jobs:
               data=json.load(open(sys.argv[1]))
               items=data.get('data',[])
               count=sum(int(r.get('received',0)) for r in items)
-              print(f"Analytics Engine persisted recent event count: {count} (read-only)")
+              print(f"Test iPhone signal count (v0.8.5, last 24h): {count} (aggregated read-only)")
           except Exception:
               print('SQL responded HTTP 200, but returned unexpected format; no personal records logged')
           PY
