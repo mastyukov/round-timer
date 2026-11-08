@@ -1,4 +1,4 @@
-import {sanitizeDiagnosticEvent} from './schema.mjs';
+import {sanitizeDiagnosticEvent,ERROR_CODES,COMPONENTS} from './schema.mjs';
 
 // Privacy-safe, bounded queue. Event identifiers are one-off random values,
 // never stable device/user identifiers; retained locally for at most 24 hours.
@@ -18,8 +18,8 @@ const project = e => ({
   eventId:e.id,
 });
 const valid = e => !!e && UUID.test(e.id) &&
-  ERROR_TYPES.has(e.event) && typeof e.code==='string' &&
-  typeof e.component==='string' && /^\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(e.version) &&
+  ERROR_TYPES.has(e.event) && ERROR_CODES.includes(e.code) &&
+  COMPONENTS.includes(e.component) && /^\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(e.version) &&
   Number.isSafeInteger(e.createdAt) && Number.isSafeInteger(e.nextAt) &&
   Number.isInteger(e.tries) && e.tries >= 0 && e.tries < DELAYS.length;
 
@@ -41,7 +41,10 @@ export function createDiagnosticSender({
   let queue=[];
   try {
     const persisted=getStorage()?.getItem(STORE_KEY);
-    if(persisted && persisted.length<=MAX_BYTES)queue=filter(JSON.parse(persisted),timestamp());
+    if(persisted && persisted.length<=MAX_BYTES)queue=filter(JSON.parse(persisted),timestamp()).map(e=>({
+      id:e.id,event:e.event,code:e.code,component:e.component,version:e.version,
+      createdAt:e.createdAt,nextAt:e.nextAt,tries:e.tries
+    }));
   } catch {}
   function persist() {
     try {
@@ -103,7 +106,8 @@ export function createDiagnosticSender({
       const id=idFactory();
       if(typeof id!=='string' || !UUID.test(id))return false;
       used++;
-      queue.push({...safe,eventId:undefined,id,createdAt:timestamp(),nextAt:timestamp(),tries:0});
+      queue.push({id,event:safe.event,code:safe.code,component:safe.component,version:safe.version,
+        createdAt:timestamp(),nextAt:timestamp(),tries:0});
       persist();
       // Fire and forget: no sound or UI waits for the network.
       void flush();
