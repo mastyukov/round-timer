@@ -1,0 +1,66 @@
+name: Verify Cloudflare Worker token (read-only)
+on:
+  push:
+    branches: [setup/fast-lane-v1.3]
+    paths:
+      - '.github/workflows/verify-worker-token.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Verify credentials and account discovery without deploying
+        shell: bash
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_WORKER_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${CLOUDFLARE_API_TOKEN:-}" ]]; then
+            echo "::error::CLOUDFLARE_WORKER_API_TOKEN not available to this workflow"
+            exit 1
+          fi
+          if [[ -n "${CLOUDFLARE_ACCOUNT_ID:-}" ]]; then
+            echo "Account ID secret: PRESENT"
+          else
+            echo "Account ID secret: MISSING (will attempt read-only discovery)"
+          fi
+          tmp_token="$(mktemp)"
+          tmp_accounts="$(mktemp)"
+          trap 'rm -f "$tmp_token" "$tmp_accounts"' EXIT
+          token_status="$(curl --silent --show-error --connect-timeout 15 --max-time 30 \
+            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            --output "$tmp_token" --write-out '%{http_code}' \
+            https://api.cloudflare.com/client/v4/user/tokens/verify)"
+          python3 - "$tmp_token" "$token_status" <<'PY'
+          import json,sys
+          from pathlib import Path
+          try: data=json.loads(Path(sys.argv[1]).read_text())
+          except Exception:
+              print("FAIL: invalid verification JSON")
+              sys.exit(1)
+          ok=sys.argv[2]=="200" and data.get("success") is True and (data.get("result") or {}).get("status")=="active"
+          print("Worker API token: " + ("ACTIVE" if ok else "NOT VERIFIED") + " (HTTP " + sys.argv[2] + ")")
+          if not ok: sys.exit(1)
+          PY
+          account_status="$(curl --silent --show-error --connect-timeout 15 --max-time 30 \
+            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            --output "$tmp_accounts" --write-out '%{http_code}' \
+            'https://api.cloudflare.com/client/v4/accounts?per_page=100')"
+          python3 - "$tmp_accounts" "$account_status" <<'PY'
+          import json,sys
+          from pathlib import Path
+          try:
+              data=json.loads(Path(sys.argv[1]).read_text())
+              accounts=data.get('result') or []
+          except Exception:
+              accounts=[]
+          status=sys.argv[2]
+          print(f"Account discovery: HTTP {status}, accessible accounts={len(accounts) if status=='200' else 'unavailable'}")
+          print("SAFE: only read-only Cloudflare requests. No account IDs or tokens printed. No deployment.")
+          PY
