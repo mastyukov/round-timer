@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createDiagnosticSender} from '../site/diagnostics/sender.mjs';
+import {createDiagnosticSender,productionDiagnosticEndpoint} from '../site/diagnostics/sender.mjs';
 
 const uuid=i=>String(i).padStart(8,'0')+'-1111-4111-8111-111111111111';
 const event={event:'audio_failure',code:'AUDIO_PLAY_REJECTED',component:'audio',version:'0.8.6'};
@@ -161,4 +161,20 @@ test('non-acknowledging HTTP status is retried without false success',async()=>{
  await x.sender.report(event);await micro();
  assert.equal(x.sender.pending,1);
  x.sender.dispose();
+});
+
+test('synthetic preview, localhost and CDN never post to live Cloudflare',()=>{
+ const endpoint='https://round-timer-error-receiver.mastyukov.workers.dev/v1/error';
+ const production={origin:'https://mastyukov.github.io',pathname:'/round-timer/'};
+ assert.equal(productionDiagnosticEndpoint(production,endpoint),endpoint);
+ for(const url of [
+   'https://mastyukov-cyber.github.io/round-timer-pages-test/',
+   'https://round-timer-pwa.pages.dev/',
+   'https://mastyukov.github.io/other-project/',
+   'https://localhost:3000/round-timer/',
+   'https://cdn.jsdelivr.net/gh/mastyukov/round-timer/site/',
+ ]) {
+   assert.equal(productionDiagnosticEndpoint(new URL(url),endpoint),'',url);
+ }
+ assert.equal(productionDiagnosticEndpoint(null,endpoint),'');
 });
