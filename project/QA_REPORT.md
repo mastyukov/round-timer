@@ -53,3 +53,10 @@
 - Тестовый GitHub Actions run 42512101084: 11/11 PASS; Cloudflare Analytics Engine live SQL PASS, без сырых логов; режим DRY RUN и без создания GitHub Issues.
 - Начало запланированного контроля после слияния: 11.11.2026 18:27 UTC и далее каждый третий день.
 - Доставка GitHub-уведомлений на телефон пока не проверена. Выпуск приложения не затронут.
+
+## AI autofix кандидат (изолированная ветка)
+- Новые компоненты: `scripts/autofix_guard.py`, `tests/test_autofix_guard.py`, `.github/workflows/autofix-diagnostics.yml`.
+- GitHub Actions run `42513360918` — **21/21 Python тестов PASS**, Cloudflare SQL live PASS, dry-run без изменения Issues.
+- AI автоматически создаёт только candidate patch; PR лишь после полного независимого QA в job без OpenAI-ключа.
+- Фактический запуск Codex, финансовые затраты, создание GitHub PR и сообщение пользователю — ещё не проверены, поскольку отсутствует подключённый ключ `OPENAI_API_KEY`.
+- До отдельного разрешения на объединение main никаких новых действий на рабочем сайте не происходит.

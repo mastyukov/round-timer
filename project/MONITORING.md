@@ -10,13 +10,13 @@ GitHub Actions запускает короткую проверку календ
 
 ## Когда уведомляет
 - Ошибок нет — GitHub Issues не меняются.
-- Новый тип ошибки — создаётся Issue с меткой `round-timer-diagnostics` и упоминанием `@mastyukov-cyber`.
+- Новый тип ошибки — создаётся внутренняя Issue с меткой `round-timer-diagnostics` **без уведомляющего упоминания владельца**. При доступном API-ключе запускается единственная попытка ИИ-исправления за этот цикл.
 - Повторение на следующей трёхдневной проверке — комментарий к существующей Issue. Закрытая Issue вновь открывается.
 - Повторный запуск в ту же дату не создаёт дубликатов.
 - Сбой чтения Cloudflare вызывает FAIL в GitHub Actions; владелец должен разрешить уведомления о сбоях Actions.
 
 ## Как получать уведомления
-Войдите под владельцем GitHub в https://github.com/mastyukov/round-timer и выберите **Watch → All Activity** (или подписку на Issues). В https://github.com/settings/notifications включите уведомления на выбранном устройстве или по email. Доставка не доказана до фактической проверки первого уведомления.
+Войдите под владельцем GitHub в https://github.com/mastyukov/round-timer и выберите **Watch → Participating and @mentions**. В https://github.com/settings/notifications включите уведомления на выбранном устройстве или по email. Доставка не доказана до фактической проверки первого уведомления.
 
 Ошибки: https://github.com/mastyukov/round-timer/issues?q=label%3Around-timer-diagnostics
 
