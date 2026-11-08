@@ -1,6 +1,6 @@
 import {createDiagnosticSender,attachBrowserErrorCapture} from './diagnostics/sender.mjs';
 import {createDelayedStartGuard} from './audio-guard.mjs';
-const DIAGNOSTICS_VERSION='0.8.5';
+const DIAGNOSTICS_VERSION='0.8.6';
 const diagnosticSender=createDiagnosticSender({
   endpoint:'https://round-timer-error-receiver.mastyukov.workers.dev/v1/error'
 });
