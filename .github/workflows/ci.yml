@@ -4,6 +4,7 @@ on:
     branches:
       - setup/fast-lane-v1.3
       - main
+      - setup/diagnostic-monitor-3d
     paths:
       - 'tests/**'
       - 'site/**'
