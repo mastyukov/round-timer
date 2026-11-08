@@ -1,0 +1,67 @@
+name: One-time harden Round Timer error Worker
+on:
+  push:
+    branches: [setup/fast-lane-v1.3]
+    paths: ['.github/workflows/worker-hardening-release-once.yml']
+permissions:
+  contents: read
+concurrency:
+  group: round-timer-error-worker-release
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: ${{ github.repository == 'mastyukov/round-timer' && github.event.head_commit.message == 'Owner-approved hardening of diagnostic Worker with shared rate limiter' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_WORKER_API_TOKEN }}
+      WRANGLER_SEND_METRICS: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Worker and diagnostics (no PWA deployment)
+        run: |
+          set -euo pipefail
+          node --check receiver/cloudflare-worker/src/index.mjs
+          node --test tests/*.test.mjs
+          node -e "const c=require('./receiver/cloudflare-worker/wrangler.jsonc');if(c.name!=='round-timer-error-receiver'||c.analytics_engine_datasets[0].binding!=='ERROR_EVENTS'||c.ratelimits?.[0]?.name!=='ERROR_RATE_LIMIT'||c.ratelimits?.[0]?.simple?.limit!==60)process.exit(1);console.log('PASS: strict technical error receiver and global rate limiter')"
+      - name: Resolve account ID without printing secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${CLOUDFLARE_API_TOKEN:-}"
+          file="$(mktemp)"
+          trap 'rm -f "$file"' EXIT
+          code="$(curl --silent --show-error --max-time 30 --output "$file" --write-out '%{http_code}' -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" 'https://api.cloudflare.com/client/v4/accounts?per_page=100')"
+          python3 - "$file" "$code" "$GITHUB_ENV" <<'PY'
+          import json,sys
+          with open(sys.argv[1]) as f: r=json.load(f)
+          items=r.get('result') or []
+          if sys.argv[2]!='200' or not r.get('success') or len(items)!=1: raise SystemExit('No unique Cloudflare account')
+          acc=items[0]['id']
+          if len(acc)!=32 or not all(c in 'abcdefABCDEF0123456789' for c in acc): raise SystemExit('Invalid account ID')
+          with open(sys.argv[3],'a') as f: f.write('CLOUDFLARE_ACCOUNT_ID='+acc+'\n')
+          print('PASS: account resolved privately')
+          PY
+      - name: Deploy only the existing error Worker
+        working-directory: receiver/cloudflare-worker
+        run: npx --yes wrangler@4 deploy --config wrangler.jsonc
+      - name: Synthetic real service smoke test (no user data)
+        shell: bash
+        run: |
+          set -euo pipefail
+          endpoint='https://round-timer-error-receiver.mastyukov.workers.dev/v1/error'
+          probe() {
+            expected="$1"; label="$2"; shift 2
+            code="$(curl --silent --show-error --max-time 30 --output /dev/null --write-out '%{http_code}' "$@")"
+            if [[ "$code" != "$expected" ]]; then
+              echo "::error::$label expected $expected actual $code"; exit 1
+            fi
+            echo "PASS: $label returned $code"
+          }
+          probe 204 'Safe error accepted' -X POST -H 'Origin: https://mastyukov.github.io' -H 'Content-Type: text/plain;charset=UTF-8' \
+            --data '{"event":"asset_error","code":"ASSET_LOAD_FAILED","component":"assets","version":"0.8.5"}' "$endpoint"
+          probe 403 'Unapproved origin rejected' -X POST -H 'Origin: https://invalid.invalid' -H 'Content-Type: text/plain;charset=UTF-8' \
+            --data '{"event":"app_error","code":"UNKNOWN","component":"ui","version":"0.8.5"}' "$endpoint"
+          probe 400 'Workout statistics rejected' -X POST -H 'Origin: https://mastyukov.github.io' -H 'Content-Type: text/plain;charset=UTF-8' \
+            --data '{"event":"workout_start","code":"UNKNOWN","component":"ui","version":"0.8.5"}' "$endpoint"
+          echo 'No production PWA changes, no identifiers, no raw errors.'
