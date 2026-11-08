@@ -131,3 +131,34 @@ test('malformed persisted queue never retransmits arbitrary text, URLs or person
  assert(!storage.all[0].includes('secret-user'));
  x.sender.dispose();
 });
+
+
+test('hung fetch times out and a later retry is acknowledged once',async()=>{
+ const sent=[];let count=0;
+ const x=factory({
+   requestTimeoutMs:100,
+   transport:async(_url,opts)=>{
+     sent.push(JSON.parse(opts.body));count++;
+     if(count===1)return new Promise(()=>{}); // radio never responds or settles
+     return {status:204,type:'cors'};
+   }
+ });
+ assert.equal(await x.sender.report(event),true);
+ // Allow the capped 100ms request deadline to release the busy flag.
+ await new Promise(resolve=>setTimeout(resolve,180));
+ assert.equal(count,1);
+ assert.equal(x.sender.pending,1,'timeout must not count as server receipt');
+ x.tick(30001);
+ assert.equal(await x.sender.flush(),true);
+ assert.equal(x.sender.pending,0);
+ assert.equal(sent.length,2);
+ assert.equal(sent[0].eventId,sent[1].eventId,'same event ID for server deduplication');
+ x.sender.dispose();
+});
+
+test('non-acknowledging HTTP status is retried without false success',async()=>{
+ const x=factory({transport:async()=>({status:202,type:'cors'})});
+ await x.sender.report(event);await micro();
+ assert.equal(x.sender.pending,1);
+ x.sender.dispose();
+});
