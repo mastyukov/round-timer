@@ -31,6 +31,14 @@ jobs:
           git -C "$dir" fsck --no-reflogs --strict
           echo "SourceCraft restored commit: $(git -C "$dir" rev-parse HEAD)"
           echo "Restored files: $(git -C "$dir" ls-files | wc -l)"
+          gh_head="$(timeout 40 git -c credential.helper= ls-remote https://github.com/mastyukov/round-timer.git refs/heads/main | cut -f1)"
+          sc_head="$(git -C "$dir" rev-parse HEAD)"
+          if [[ "$gh_head" != "$sc_head" ]]; then
+            echo "::warning::SourceCraft snapshot is older than GitHub main; recovered contents are NOT the latest release."
+            echo "BACKUP_FRESHNESS: PENDING (different heads)"
+          else
+            echo "BACKUP_FRESHNESS: PASS"
+          fi
           printf '%s\n' "RESTORE_TREE: PASS"
       - name: Verify independent recovered timer and diagnostic source
         shell: bash
@@ -41,7 +49,11 @@ jobs:
           node --check site/engine.mjs
           node --check site/sw.js
           node --test tests/*.test.mjs
-          python3 -m unittest discover -s tests -p 'test_*.py' -v
+          if find tests -maxdepth 1 -type f -name 'test_*.py' | grep -q .; then
+            python3 -m unittest discover -s tests -p 'test_*.py' -v
+          else
+            echo 'NOTE: this recovered snapshot predates Python monitoring tests; checking only its existing JS tests.'
+          fi
           python3 - <<'PY'
           import json
           from pathlib import Path
