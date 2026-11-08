@@ -34,7 +34,7 @@ jobs:
           assert "workflow_run:" in p and "pull_request:" in p
           # Inspect ONLY the actual privileged job. Checking the whole YAML
           # would accidentally match forbidden text embedded in these assertions.
-          alert=p.split("\\n  alert:\\n",1)
+          alert=p.split(chr(10) + '  alert:' + chr(10),1)
           assert len(alert)==2, "missing monitoring health job"
           policy=alert[1]
           assert "github.event.workflow_run.conclusion == 'failure'" in policy
