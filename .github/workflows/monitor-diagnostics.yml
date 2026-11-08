@@ -16,6 +16,7 @@ on:
 permissions:
   contents: read
   issues: write
+  actions: write
 
 concurrency:
   group: round-timer-three-day-monitor
@@ -33,4 +34,5 @@ jobs:
         env:
           CLOUDFLARE_WORKER_API_TOKEN: ${{ secrets.CLOUDFLARE_WORKER_API_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AUTOFIX_ENABLED: ${{ secrets.OPENAI_API_KEY != '' }}
         run: python3 -m scripts.round_timer_monitor
