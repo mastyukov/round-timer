@@ -27,6 +27,7 @@ export function createDiagnosticSender({
   endpoint='',transport=globalThis.fetch,maxReports=MAX_EVENTS,
   storage=undefined,now=()=>Date.now(),idFactory=newId,
   onlineTarget=globalThis,timeout=globalThis.setTimeout,
+  requestTimeoutMs=8_000,
 }={}) {
   let enabled=false;
   try {const u=new URL(endpoint);enabled=u.protocol==='https:' && !!u.hostname &&
@@ -75,17 +76,33 @@ export function createDiagnosticSender({
         e.nextAt=timestamp()+DELAYS[Math.min(DELAYS.length-1,e.tries-1)];
         persist();
         try {
-          const res=await transport(endpoint,{
+          // A fetch() can hang indefinitely when a mobile radio stalls. Bound
+          // EACH attempt so a bad connection cannot starve the entire queue.
+          const abort=typeof AbortController==='function'?new AbortController():null;
+          let deadline=null;
+          const network=Promise.resolve().then(()=>transport(endpoint,{
             method:'POST',mode:'cors',credentials:'omit',cache:'no-store',
             redirect:'error',keepalive:true,
             headers:{'Content-Type':'text/plain;charset=UTF-8'},
             body:JSON.stringify(project(e)),
+            ...(abort?{signal:abort.signal}:{}),
+          }));
+          const duration=Math.max(100,Math.min(30_000,Number(requestTimeoutMs)||8_000));
+          const timeoutResponse=new Promise((_,reject)=>{
+            deadline=globalThis.setTimeout(()=>{
+              try{abort?.abort();}catch{}
+              reject(new Error('diagnostic request timed out'));
+            },duration);
+            deadline?.unref?.();
           });
-          // Never treat fetch completion, opaque status, or HTTP 202 as storage ACK.
-          if(res?.status===204 && res?.type!=='opaque'){
-            queue=queue.filter(x=>x.id!==e.id);acknowledged=true;
-          }
-        }catch{} // Network is advisory. Timer must never await it.
+          try {
+            const res=await Promise.race([network,timeoutResponse]);
+            // Only a non-opaque server 204 confirms receipt, not Analytics persistence.
+            if(res?.status===204 && res?.type!=='opaque'){
+              queue=queue.filter(x=>x.id!==e.id);acknowledged=true;
+            }
+          }finally{if(deadline!=null)globalThis.clearTimeout(deadline);}
+        }catch{} // Advisory telemetry: never interrupt the timer or UI.
         if(e.tries>=DELAYS.length)queue=queue.filter(x=>x.id!==e.id);
         persist();
       }
