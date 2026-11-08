@@ -1,8 +1,8 @@
-import {createDiagnosticSender,attachBrowserErrorCapture} from './diagnostics/sender.mjs';
+import {createDiagnosticSender,attachBrowserErrorCapture,productionDiagnosticEndpoint} from './diagnostics/sender.mjs';
 import {createDelayedStartGuard} from './audio-guard.mjs';
 const DIAGNOSTICS_VERSION='0.8.6';
 const diagnosticSender=createDiagnosticSender({
-  endpoint:'https://round-timer-error-receiver.mastyukov.workers.dev/v1/error'
+  endpoint:productionDiagnosticEndpoint(globalThis.location,'https://round-timer-error-receiver.mastyukov.workers.dev/v1/error')
 });
 attachBrowserErrorCapture({target:window,sender:diagnosticSender,version:DIAGNOSTICS_VERSION});
 // Error-only telemetry; no usage, no personal information and no UI changes.
