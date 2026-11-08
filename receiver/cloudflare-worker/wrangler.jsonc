@@ -1,0 +1,12 @@
+{
+  "name": "round-timer-error-receiver",
+  "main": "src/index.mjs",
+  "compatibility_date": "2026-11-08",
+  "workers_dev": true,
+  "analytics_engine_datasets": [
+    {
+      "binding": "ERROR_EVENTS",
+      "dataset": "round_timer_error_events"
+    }
+  ]
+}
