@@ -9,9 +9,7 @@ on:
       - 'diagnostics/**'
       - 'receiver/**'
       - 'scripts/**'
-      - '.github/workflows/ci.yml'
-      - '.github/workflows/monitor-diagnostics.yml'
-      - '.github/workflows/publish-pages.yml'
+      - '.github/workflows/**'
   pull_request:
     branches: [main]
     paths:
@@ -20,9 +18,7 @@ on:
       - 'diagnostics/**'
       - 'receiver/**'
       - 'scripts/**'
-      - '.github/workflows/ci.yml'
-      - '.github/workflows/monitor-diagnostics.yml'
-      - '.github/workflows/publish-pages.yml'
+      - '.github/workflows/**'
   workflow_dispatch:
 
 permissions:
