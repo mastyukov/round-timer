@@ -1,0 +1,36 @@
+name: Round Timer — diagnostic monitor every three days
+on:
+  schedule:
+    # Check calendar daily, but query Cloudflare only on every third day.
+    # First query 2026-11-11 at 18:27 UTC (21:27 Moscow).
+    - cron: '27 18 * * *'
+  workflow_dispatch:
+  push:
+    branches:
+      - setup/diagnostic-monitor-3d
+    paths:
+      - 'scripts/round_timer_monitor.py'
+      - 'tests/test_round_timer_monitor.py'
+      - '.github/workflows/monitor-diagnostics.yml'
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: round-timer-three-day-monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unit tests — calendar, privacy and duplicate prevention
+        run: python3 -m unittest discover -s tests -p 'test_round_timer_monitor.py' -v
+      - name: Cloudflare aggregate check (GitHub Issues only on scheduled days)
+        env:
+          CLOUDFLARE_WORKER_API_TOKEN: ${{ secrets.CLOUDFLARE_WORKER_API_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 -m scripts.round_timer_monitor
