@@ -78,6 +78,12 @@ test('synthetic DOM model: start / pause / resume / reset and stale gong',async(
    await delay();await delay();await delay();
    assert.equal(audioStarts,0,'late start gong must never play after PAUSE');
    nodes.resetButton.fire('click');
+   nodes.startPauseButton.fire('click'); // New running session persists when page closes
+   current+=9000;
+   await import('../site/app.mjs?browser-model-reopen');
+   assert.equal(nodes.phaseLabel.textContent,'РАБОТА');
+   assert.equal(nodes.clock.textContent,'00:51','restored session uses actual elapsed wall time');
+   nodes.resetButton.fire('click');
  }finally{
    Date.now=originalNow;
    for(const [key,descriptor] of originals){
