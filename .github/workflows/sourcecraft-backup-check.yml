@@ -1,0 +1,109 @@
+name: SourceCraft backup audit
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/sourcecraft-backup-check.yml"
+  schedule:
+    - cron: "17 3 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sourcecraft-backup-audit
+  cancel-in-progress: false
+
+jobs:
+  check-mirror:
+    name: Compare GitHub and SourceCraft main
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GIT_TERMINAL_PROMPT: "0"
+    steps:
+      - name: Check public mirror (read-only)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          GH_REMOTE="https://github.com/mastyukov/round-timer.git"
+          SC_REMOTE="https://git@git.sourcecraft.dev/m-mastyukov/round-timer.git"
+          GH_SHA="unavailable"
+          SC_SHA="unavailable"
+
+          report() {
+            local status="$1" reason="$2"
+            echo "[$status] $reason"
+            {
+              echo "## SourceCraft mirror audit"
+              echo ""
+              echo "**Status:** $status"
+              echo ""
+              echo "| Source | main HEAD |"
+              echo "| --- | --- |"
+              echo "| GitHub | \`$GH_SHA\` |"
+              echo "| SourceCraft | \`$SC_SHA\` |"
+              echo ""
+              echo "**Explanation:** $reason"
+              echo ""
+              echo "Read-only check; no source files, deployments, or secrets are changed."
+            } >> "$GITHUB_STEP_SUMMARY"
+          }
+
+          read_main_head() {
+            timeout 40s git -c credential.helper= ls-remote "$1" refs/heads/main |
+              awk '$2 == "refs/heads/main" {print $1}'
+          }
+
+          if ! GH_SHA="$(read_main_head "$GH_REMOTE")"; then
+            GH_SHA="unavailable"
+            report "BLOCKED" "GitHub public remote could not be read."
+            exit 1
+          fi
+          if ! [[ "$GH_SHA" =~ ^[0-9a-f]{40,64}$ ]]; then
+            report "BLOCKED" "GitHub main HEAD is missing or invalid."
+            exit 1
+          fi
+
+          if ! SC_SHA="$(read_main_head "$SC_REMOTE")"; then
+            SC_SHA="unavailable"
+            report "BLOCKED" "SourceCraft public remote could not be read."
+            exit 1
+          fi
+          if ! [[ "$SC_SHA" =~ ^[0-9a-f]{40,64}$ ]]; then
+            report "BLOCKED" "SourceCraft main HEAD is missing or invalid."
+            exit 1
+          fi
+
+          if [[ "$GH_SHA" == "$SC_SHA" ]]; then
+            report "PASS" "Both public main branches point to the same commit."
+            exit 0
+          fi
+
+          # The repository's pushed_at is an upper bound on how long the
+          # latest main update could have been waiting for the mirror.
+          # Activity on other branches can only make this check more lenient.
+          if ! pushed_at="$(
+            curl --fail --silent --show-error --location --max-time 20 \
+              "https://api.github.com/repos/mastyukov/round-timer" |
+              jq -r '.pushed_at // empty'
+          )"; then
+            report "BLOCKED" "HEADs differ and GitHub push time is unavailable."
+            exit 1
+          fi
+          if [[ -z "$pushed_at" ]] || ! pushed_epoch="$(date -u -d "$pushed_at" +%s 2>/dev/null)"; then
+            report "BLOCKED" "HEADs differ and the GitHub push timestamp is invalid."
+            exit 1
+          fi
+
+          now_epoch="$(date -u +%s)"
+          age_seconds="$(( now_epoch - pushed_epoch ))"
+          if (( age_seconds < 14400 )); then
+            report "PENDING" "HEADs differ, but the last GitHub push is less than 4 hours old; allow mirror delay and recheck."
+            exit 0
+          fi
+
+          report "FAIL" "SourceCraft main differs from GitHub main more than 4 hours after the last repository push."
+          exit 1
