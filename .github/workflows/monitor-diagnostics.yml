@@ -10,7 +10,10 @@ on:
       - setup/diagnostic-monitor-3d
     paths:
       - 'scripts/round_timer_monitor.py'
+      - 'scripts/autofix_guard.py'
       - 'tests/test_round_timer_monitor.py'
+      - 'tests/test_autofix_guard.py'
+      - '.github/workflows/autofix-diagnostics.yml'
       - '.github/workflows/monitor-diagnostics.yml'
 
 permissions:
@@ -29,7 +32,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Unit tests — calendar, privacy and duplicate prevention
-        run: python3 -m unittest discover -s tests -p 'test_round_timer_monitor.py' -v
+        run: python3 -m unittest discover -s tests -p 'test_*.py' -v
       - name: Cloudflare aggregate check (GitHub Issues only on scheduled days)
         env:
           CLOUDFLARE_WORKER_API_TOKEN: ${{ secrets.CLOUDFLARE_WORKER_API_TOKEN }}
