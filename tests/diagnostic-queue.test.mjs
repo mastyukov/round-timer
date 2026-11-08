@@ -116,3 +116,18 @@ test('invalid event IDs cannot become stable user/device IDs',async()=>{
  assert.equal(await x.sender.report(event),false);
  assert.equal(x.sender.pending,0);x.sender.dispose();
 });
+
+test('malformed persisted queue never retransmits arbitrary text, URLs or personal data',async()=>{
+ const storage=memoryStorage(),sent=[];
+ storage.setItem('round-timer-technical-errors-v1',JSON.stringify([{
+   id:uuid(1),event:'audio_failure',code:'private@example.test',component:'audio',
+   version:'0.8.6',createdAt:1000000,nextAt:1000000,tries:0,
+   email:'secret-user@example.test',stack:'secret stack'
+ }]));
+ const x=factory({storage,transport:async(_u,p)=>{sent.push(p.body);return {status:204,type:'cors'};}});
+ await micro();
+ assert.equal(x.sender.pending,0);
+ assert.equal(sent.length,0);
+ assert(!storage.all[0].includes('secret-user'));
+ x.sender.dispose();
+});
