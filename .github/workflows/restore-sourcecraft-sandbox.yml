@@ -1,0 +1,55 @@
+name: SourceCraft — independent restore into disposable sandbox
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/restore-sourcecraft-sandbox.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  restore:
+    name: Clone independent mirror, verify tree and run tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      GIT_TERMINAL_PROMPT: '0'
+      SOURCECRAFT_REMOTE: 'https://git@git.sourcecraft.dev/m-mastyukov/round-timer.git'
+    steps:
+      - name: Restore mirror in isolated temporary directory (no checkout of working site)
+        shell: bash
+        run: |
+          set -euo pipefail
+          dir="$RUNNER_TEMP/sourcecraft-round-timer-restore"
+          timeout 120 git -c credential.helper= clone --depth=1 --branch main "$SOURCECRAFT_REMOTE" "$dir"
+          test -s "$dir/site/index.html"
+          test -s "$dir/site/sw.js"
+          test -s "$dir/site/engine.mjs"
+          git -C "$dir" fsck --no-reflogs --strict
+          echo "SourceCraft restored commit: $(git -C "$dir" rev-parse HEAD)"
+          echo "Restored files: $(git -C "$dir" ls-files | wc -l)"
+          printf '%s\n' "RESTORE_TREE: PASS"
+      - name: Verify independent recovered timer and diagnostic source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/sourcecraft-round-timer-restore"
+          node --check site/app.mjs
+          node --check site/engine.mjs
+          node --check site/sw.js
+          node --test tests/*.test.mjs
+          python3 -m unittest discover -s tests -p 'test_*.py' -v
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          m=json.loads(Path('site/manifest.webmanifest').read_text())
+          assert m['start_url']=='./'
+          assert m['name']=='Раунд таймер'
+          assert (Path('site')/'sounds/gong-start.mp3').stat().st_size>0
+          print('RESTORED_APP_AND_SOUND: PASS')
+          PY
+      - name: No production deploy or writes
+        run: echo 'PASS — recovered independent files were tested only inside temporary GitHub runner'
