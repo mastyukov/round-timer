@@ -1,0 +1,77 @@
+name: Publish approved Round Timer to permanent GitHub Pages
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'tests/**'
+      - '.github/workflows/publish-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: round-timer-production-pages
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify exact v0.8.5 release
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify no extra user-facing data
+        run: |
+          set -euo pipefail
+          test -f site/index.html
+          test -f site/sw.js
+          test -f site/.nojekyll
+          test -f site/privacy.html
+          test ! -d site/tests
+          test ! -d site/receiver
+          test ! -d site/project
+          node --check site/app.mjs
+          node --check site/engine.mjs
+          node --check site/sw.js
+          node --check site/diagnostics/schema.mjs
+          node --check site/diagnostics/sender.mjs
+          node --test tests/*.test.mjs
+      - name: Validate publish manifest and no synthetic trigger
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          folder=Path('site')
+          manifest=json.loads((folder/'manifest.webmanifest').read_text())
+          assert manifest['name']=='Раунд таймер'
+          assert manifest['short_name']=='Раунд таймер'
+          assert manifest['start_url']=='./'
+          assert manifest['scope']=='./'
+          assert 'diag_test' not in (folder/'app.mjs').read_text()
+          assert 'round-timer-shell-v0.8.5' in (folder/'sw.js').read_text()
+          print('PASS: only approved 0.8.5 files can be published')
+          PY
+
+  deploy:
+    name: Deploy stable user site (site/ only)
+    if: ${{ github.ref == 'refs/heads/main' && github.repository == 'mastyukov/round-timer' }}
+    needs: [verify]
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Upload only site/ as public artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
+      - name: Deploy approved artifacts
+        id: deployment
+        uses: actions/deploy-pages@v4

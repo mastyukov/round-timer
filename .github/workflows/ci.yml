@@ -1,0 +1,45 @@
+name: FAST LANE CI (checks only; never deploys)
+on:
+  push:
+    branches:
+      - setup/fast-lane-v1.3
+      - main
+    paths:
+      - 'tests/**'
+      - 'site/**'
+      - 'diagnostics/**'
+      - '.github/workflows/ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify static application
+        run: |
+          test -s site/index.html
+          test -s site/sw.js
+          test -s site/sounds/gong-start.mp3
+          test -s site/sounds/gong-end.mp3
+          test -s site/sounds/woodclack.mp3
+          node --check site/app.mjs
+          node --check site/engine.mjs
+          node --check site/sw.js
+          node --check diagnostics/schema.mjs
+          node --check site/diagnostics/schema.mjs
+          node --check site/diagnostics/sender.mjs
+      - name: Unit tests (timer and privacy-safe diagnostic contract)
+        run: node --test tests/*.test.mjs
+      - name: Validate PWA manifest
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          m = json.loads(Path('site/manifest.webmanifest').read_text())
+          assert m['display'] == 'standalone'
+          assert m['start_url'] == './'
+          assert 'round-timer-shell-v0.8.5' in Path('site/sw.js').read_text()
+          print('PWA baseline checks: PASS')
+          PY
