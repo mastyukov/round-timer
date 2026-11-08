@@ -127,8 +127,7 @@ def last_day(body, key):
 
 def issue_body(row, day):
     return "\n".join([
-        "@" + OWNER_LOGIN,
-        "",
+        # No ping for raw error detection: notify owner only on verified PR.
         "Автоматическая проверка Round Timer за последние 72 часа:",
         "",
         "- Тип технической ошибки: " + row["event"],
@@ -145,7 +144,7 @@ def issue_body(row, day):
     ])
 
 
-def reconcile(rows, github_token, day):
+def reconcile(rows, github_token, day, on_new_issue=None):
     if not rows:
         return (0, 0, 0)
     ensure_label(github_token)
@@ -167,10 +166,15 @@ def reconcile(rows, github_token, day):
                {"body": f"Ошибка повторилась: {row['total']} событий за 72 часа; дата UTC {day}."})
             updated += 1
         else:
-            gh(github_token, "/issues", "POST",
+            issue = gh(github_token, "/issues", "POST",
                {"title": f"[Round Timer] {row['code']} · {row['component']} · v{row['version']}",
                 "labels": [LABEL], "body": issue_body(row, day)})
             created += 1
+            if on_new_issue is not None and created == 1:
+                number = issue.get("number") if isinstance(issue, dict) else None
+                if not isinstance(number, int) or number < 1:
+                    raise RuntimeError("GitHub did not return an issue number")
+                on_new_issue(number, row)
     return (created, updated, unchanged)
 
 
@@ -192,7 +196,22 @@ def main():
     gh_token = os.getenv("GITHUB_TOKEN", "")
     if not gh_token:
         raise RuntimeError("GitHub token unavailable")
-    created, updated, unchanged = reconcile(rows, gh_token, today.isoformat())
+    def start_autofix(issue_number, row):
+        # workflow_dispatch is explicitly allowed to create a new run from GITHUB_TOKEN.
+        # Limit to one candidate attempt per real monitoring day.
+        if os.getenv("AUTOFIX_ENABLED", "false").lower() != "true":
+            print("AI candidate repair not enabled: no dispatch.")
+            return
+        gh(gh_token, "/actions/workflows/autofix-diagnostics.yml/dispatches", "POST",
+           {"ref":"main", "inputs":{
+               "issue_number":str(issue_number),
+               "error_code":row["code"],
+               "component":row["component"],
+               "version":row["version"],
+               "error_type":row["event"]}})
+        print("Automatic repair workflow dispatched; owner not notified before QA.")
+
+    created, updated, unchanged = reconcile(rows, gh_token, today.isoformat(), on_new_issue=start_autofix)
     print(f"PASS: new issues={created}, updated={updated}, unchanged={unchanged}")
 
 
