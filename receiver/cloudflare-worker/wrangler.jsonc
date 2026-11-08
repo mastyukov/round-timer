@@ -8,5 +8,9 @@
       "binding": "ERROR_EVENTS",
       "dataset": "round_timer_error_events"
     }
-  ]
+  ],
+  "observability": {
+    "enabled": false
+  },
+  "send_metrics": false
 }

@@ -19,7 +19,7 @@ test('worker stores only four fixed error dimensions',async()=>{
     workout:{rounds:3}
   }});
   assert.equal(status,204);
-  assert.deepEqual(stored,[{blobs:['audio_failure','AUDIO_PLAY_REJECTED','audio','0.8.3'],doubles:[1],indexes:[]}]);
+  assert.deepEqual(stored,[{blobs:['audio_failure','AUDIO_PLAY_REJECTED','audio','0.8.3'],doubles:[1],indexes:['round-timer-errors']}]);
   assert(!JSON.stringify(stored).includes('private'));
 });
 

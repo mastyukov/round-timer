@@ -1,7 +1,7 @@
 /**
  * Round Timer: minimal error-only ingestion Worker.
  * Runtime: Cloudflare Workers + Analytics Engine binding ERROR_EVENTS.
- * DO NOT deploy without owner's approval and Russia reachability testing.
+ * Deployment of the standalone receiver is owner-approved. The PWA remains unaffected.
  *
  * No cookies, user IDs, IPs, URL paths, device metadata, training statistics,
  * raw exceptions, stack traces, location, or custom client text are stored.
@@ -55,8 +55,8 @@ export default {
     }
     const safe=extractError(body);
     if(!safe) return reply(400);
-    // Analytics Engine stores time automatically. No sampling key/user identifier.
-    env.ERROR_EVENTS.writeDataPoint({blobs:safe,doubles:[1],indexes:[]});
+    // Analytics Engine stores time automatically. Use one constant sampling key, never a user identifier.
+    env.ERROR_EVENTS.writeDataPoint({blobs:safe,doubles:[1],indexes:['round-timer-errors']});
     return reply(204);
   }
 };
