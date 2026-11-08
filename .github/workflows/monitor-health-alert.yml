@@ -32,10 +32,15 @@ jobs:
           from pathlib import Path
           p=Path('.github/workflows/monitor-health-alert.yml').read_text()
           assert "workflow_run:" in p and "pull_request:" in p
-          assert "github.event.workflow_run.conclusion == 'failure'" in p
-          assert "github.event.workflow_run.event == 'schedule'" in p
-          assert "actions/deploy-pages" not in p
-          assert "OPENAI_API_KEY" not in p
+          # Inspect ONLY the actual privileged job. Checking the whole YAML
+          # would accidentally match forbidden text embedded in these assertions.
+          alert=p.split("\\n  alert:\\n",1)
+          assert len(alert)==2, "missing monitoring health job"
+          policy=alert[1]
+          assert "github.event.workflow_run.conclusion == 'failure'" in policy
+          assert "github.event.workflow_run.event == 'schedule'" in policy
+          assert "actions/deploy-pages" not in policy
+          assert "OPENAI_API_KEY" not in policy
           print('SELF-HEALTH NOTIFICATION DRY RUN: PASS (no issue created)')
           PY
 
