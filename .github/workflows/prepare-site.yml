@@ -1,0 +1,47 @@
+name: One-time import approved v0.8.3 (isolated branch)
+on:
+  push:
+    branches:
+      - setup/fast-lane-v1.3
+    paths:
+      - '.github/workflows/prepare-site.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  import:
+    if: ${{ github.ref == 'refs/heads/setup/fast-lane-v1.3' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download exact approved v0.8.3 assets
+        run: python3 scripts/import_approved.py
+      - name: Verify syntax, configuration and timer model
+        run: |
+          set -euo pipefail
+          node --check site/app.mjs
+          node --check site/engine.mjs
+          node --check site/sw.js
+          node --test tests/timer-model.test.mjs
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          m=json.loads(Path('site/manifest.webmanifest').read_text())
+          assert m.get('display')=='standalone'
+          assert m.get('start_url')=='./'
+          assert 'round-timer-shell-v0.8.3' in Path('site/sw.js').read_text()
+          print('PASS: PWA manifest and cache')
+          PY
+      - name: Save approved files only to isolated branch
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add site/
+          if git diff --cached --quiet; then
+            echo "No changes to approved assets"
+            exit 0
+          fi
+          git commit -m "Import SHA-256-verified v0.8.3 app shell (branch only)"
+          git push origin HEAD:setup/fast-lane-v1.3
