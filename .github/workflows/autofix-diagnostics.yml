@@ -1,0 +1,183 @@
+name: Round Timer — isolated Codex candidate repair
+on:
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: Numeric GitHub issue
+        required: true
+        type: string
+      error_type:
+        description: Fixed technical error category
+        required: true
+        type: string
+      error_code:
+        description: Fixed technical error code
+        required: true
+        type: string
+      component:
+        description: Fixed application component
+        required: true
+        type: string
+      version:
+        description: Affected release version
+        required: true
+        type: string
+
+concurrency:
+  group: round-timer-codex-${{ inputs.issue_number }}
+  cancel-in-progress: false
+
+jobs:
+  propose:
+    name: Codex sandbox analysis — no GitHub write access
+    if: github.repository == 'mastyukov/round-timer' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    outputs:
+      has_patch: ${{ steps.patch.outputs.has_patch }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Generate prompt from validated error codes only
+        env:
+          DIAG_EVENT: ${{ inputs.error_type }}
+          DIAG_CODE: ${{ inputs.error_code }}
+          DIAG_COMPONENT: ${{ inputs.component }}
+          DIAG_VERSION: ${{ inputs.version }}
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+        run: |
+          set -euo pipefail
+          python3 -m scripts.autofix_guard prompt \
+            --event "$DIAG_EVENT" --code "$DIAG_CODE" \
+            --component "$DIAG_COMPONENT" --version "$DIAG_VERSION" \
+            --issue "$ISSUE_NUMBER" > .agent-prompt.txt
+          echo 'PASS: validated technical error codes, no raw Issue content'
+      - name: Codex — propose only a reproducible and minimal fix
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          permission-profile: ":workspace"
+          safety-strategy: "drop-sudo"
+          allow-bots: "true"
+          prompt-file: .agent-prompt.txt
+      - name: Accept only safe existing-file changes
+        id: patch
+        run: |
+          set -euo pipefail
+          git diff --binary HEAD -- > candidate.patch
+          if [[ ! -s candidate.patch ]]; then
+            echo 'NO SAFE FIX: no changes, no PR, no owner notification.'
+            echo 'has_patch=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          python3 -m scripts.autofix_guard check-patch candidate.patch
+          git diff --check
+          unknown="$(git ls-files --others --exclude-standard | grep -Ev '^(\.agent-prompt\.txt|candidate\.patch)$' || true)"
+          if [[ -n "$unknown" ]]; then
+            echo 'BLOCKED: untracked generated files'
+            exit 1
+          fi
+          echo 'has_patch=true' >> "$GITHUB_OUTPUT"
+      - name: Upload temporary source-only diff
+        if: steps.patch.outputs.has_patch == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: round-timer-candidate-patch
+          path: candidate.patch
+          retention-days: 3
+          if-no-files-found: error
+
+  qa:
+    name: Independent regression and safety checks without secrets
+    needs: propose
+    if: needs.propose.outputs.has_patch == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: round-timer-candidate-patch
+      - name: Apply allowlisted patch and require reproducible regression test
+        run: |
+          set -euo pipefail
+          python3 -m scripts.autofix_guard check-patch candidate.patch
+          git apply --check candidate.patch
+          git apply candidate.patch
+          git diff --check
+          git diff --name-only | grep -q '^site/'
+          git diff --name-only | grep -Eq '^tests/[a-z0-9_-]+\.test\.mjs$'
+      - name: Full automated timer and monitor tests
+        run: |
+          set -euo pipefail
+          node --check site/app.mjs
+          node --check site/engine.mjs
+          node --check site/sw.js
+          node --check site/diagnostics/schema.mjs
+          node --check site/diagnostics/sender.mjs
+          node --test tests/*.test.mjs
+          python3 -m unittest discover -s tests -p 'test_*.py' -v
+          test -s site/index.html
+          test -s site/privacy.html
+
+  ready_pr:
+    name: Notify owner only after full QA by opening approval-only PR
+    needs: [propose, qa]
+    if: needs.qa.result == 'success' && needs.propose.outputs.has_patch == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      ISSUE_NUMBER: ${{ inputs.issue_number }}
+      DIAG_EVENT: ${{ inputs.error_type }}
+      DIAG_CODE: ${{ inputs.error_code }}
+      DIAG_COMPONENT: ${{ inputs.component }}
+      DIAG_VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: round-timer-candidate-patch
+      - name: Guard candidate and create isolated PR without running generated code
+        run: |
+          set -euo pipefail
+          python3 -m scripts.autofix_guard prompt \
+            --event "$DIAG_EVENT" --code "$DIAG_CODE" \
+            --component "$DIAG_COMPONENT" --version "$DIAG_VERSION" \
+            --issue "$ISSUE_NUMBER" >/dev/null
+          python3 -m scripts.autofix_guard check-patch candidate.patch
+          git apply --check candidate.patch
+          git apply candidate.patch
+          branch="autofix/round-timer-$GITHUB_RUN_ID"
+          git switch -c "$branch"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- site/app.mjs site/engine.mjs site/sw.js site/diagnostics tests
+          git diff --cached --quiet && { echo 'No changed files'; exit 1; }
+          git commit -m "fix: approved-source candidate for $DIAG_CODE (issue $ISSUE_NUMBER)"
+          git push --set-upstream origin "$branch"
+          printf '%s\n' \
+            '@mastyukov-cyber' \
+            '' \
+            'Round Timer: исправление подготовлено и прошло автоматические проверки.' \
+            '' \
+            "Код ошибки $DIAG_CODE; версия $DIAG_VERSION; Issue #$ISSUE_NUMBER." \
+            'Выполнены регрессионные тесты и контроль путей изменений.' \
+            'Изменения находятся только в изолированной ветке; рабочий сайт НЕ обновлён.' \
+            'Публикация возможна только после вашего отдельного подтверждения.' \
+            "GitHub Actions: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            > candidate-message.md
+          gh pr create --base main --head "$branch" \
+            --title "Round Timer: проверенный кандидат $DIAG_CODE (Issue $ISSUE_NUMBER)" \
+            --body-file candidate-message.md
+          echo 'PASS: only an owner-approval PR was created; no merge or release.'
