@@ -1,5 +1,16 @@
 import {sanitizeDiagnosticEvent,ERROR_CODES,COMPONENTS} from './schema.mjs';
 
+// Test/preview origins must never submit synthetic errors to production.
+// A preview's localhost/browser source is deliberately not trusted.
+export function productionDiagnosticEndpoint(locationLike, endpoint) {
+  return locationLike?.origin==='https://mastyukov.github.io' &&
+    typeof locationLike?.pathname==='string' &&
+    (locationLike.pathname==='/round-timer/' ||
+      locationLike.pathname.startsWith('/round-timer/index.html'))
+    ? endpoint : '';
+}
+
+
 // Privacy-safe, bounded queue. Event identifiers are one-off random values,
 // never stable device/user identifiers; retained locally for at most 24 hours.
 const ERROR_TYPES = new Set(['app_error','asset_error','audio_failure']);
