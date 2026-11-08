@@ -5,6 +5,7 @@ on:
       - setup/fast-lane-v1.3
       - main
       - setup/diagnostic-monitor-3d
+      - 'assistant/round-timer/**'
     paths:
       - 'tests/**'
       - 'site/**'
@@ -32,7 +33,9 @@ jobs:
           node --check site/diagnostics/schema.mjs
           node --check site/diagnostics/sender.mjs
       - name: Unit tests (timer and privacy-safe diagnostic contract)
-        run: node --test tests/*.test.mjs
+        run: |
+          node --test tests/*.test.mjs
+          python3 -m unittest discover -s tests -p 'test_*.py' -v
       - name: Validate PWA manifest
         run: |
           python3 - <<'PY'
