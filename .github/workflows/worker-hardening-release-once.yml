@@ -23,7 +23,7 @@ jobs:
           set -euo pipefail
           node --check receiver/cloudflare-worker/src/index.mjs
           node --test tests/*.test.mjs
-          node -e "const c=require('./receiver/cloudflare-worker/wrangler.jsonc');if(c.name!=='round-timer-error-receiver'||c.analytics_engine_datasets[0].binding!=='ERROR_EVENTS'||c.ratelimits?.[0]?.name!=='ERROR_RATE_LIMIT'||c.ratelimits?.[0]?.simple?.limit!==60)process.exit(1);console.log('PASS: strict technical error receiver and global rate limiter')"
+          node -e "const c=JSON.parse(require('node:fs').readFileSync('receiver/cloudflare-worker/wrangler.jsonc','utf8'));if(c.name!=='round-timer-error-receiver'||c.analytics_engine_datasets[0].binding!=='ERROR_EVENTS'||c.ratelimits?.[0]?.name!=='ERROR_RATE_LIMIT'||c.ratelimits?.[0]?.simple?.limit!==60)process.exit(1);console.log('PASS: strict technical error receiver and global rate limiter')"
       - name: Resolve account ID without printing secrets
         shell: bash
         run: |
