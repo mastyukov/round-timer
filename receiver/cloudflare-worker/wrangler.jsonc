@@ -12,5 +12,15 @@
   "observability": {
     "enabled": false
   },
-  "send_metrics": false
+  "send_metrics": false,
+  "ratelimits": [
+    {
+      "name": "ERROR_RATE_LIMIT",
+      "namespace_id": "410305",
+      "simple": {
+        "limit": 60,
+        "period": 60
+      }
+    }
+  ]
 }

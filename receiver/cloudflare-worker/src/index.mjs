@@ -55,6 +55,18 @@ export default {
     }
     const safe=extractError(body);
     if(!safe) return reply(400);
+    // Global, approximate per-location burst limit. No IP address, cookie,
+    // device identifier or per-person tracking is used as the limiter key.
+    // This is abuse mitigation, not cryptographic proof of a legitimate sender.
+    if (!env.ERROR_RATE_LIMIT || typeof env.ERROR_RATE_LIMIT.limit !== 'function') {
+      return reply(503);
+    }
+    try {
+      const decision = await env.ERROR_RATE_LIMIT.limit({key:'round-timer-technical-errors'});
+      if (!decision || !decision.success) return reply(429);
+    } catch {
+      return reply(503);
+    }
     // Analytics Engine stores time automatically. Use one constant sampling key, never a user identifier.
     env.ERROR_EVENTS.writeDataPoint({blobs:safe,doubles:[1],indexes:['round-timer-errors']});
     return reply(204);

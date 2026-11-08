@@ -2,13 +2,19 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import worker,{extractError} from '../receiver/cloudflare-worker/src/index.mjs';
 
-function probe({payload,origin='https://mastyukov.github.io',path='/v1/error',method='POST'}={}){
+function probe({payload,origin='https://mastyukov.github.io',path='/v1/error',method='POST',rateAllowed=true}={}){
   const stored=[];
   const request=new Request('https://round-timer-error-receiver.test'+path,{
     method,headers:{Origin:origin,'Content-Type':'text/plain;charset=UTF-8'},
     ...(method==='POST'?{body:JSON.stringify(payload??{})}:{})
   });
-  const env={ERROR_EVENTS:{writeDataPoint(p){stored.push(p);}}};
+  const env={
+    ERROR_EVENTS:{writeDataPoint(p){stored.push(p);}},
+    ERROR_RATE_LIMIT:{async limit({key}) {
+      assert.equal(key,'round-timer-technical-errors');
+      return {success:rateAllowed};
+    }}
+  };
   return worker.fetch(request,env).then(r=>({status:r.status,stored}));
 }
 
@@ -60,4 +66,23 @@ test('worker does not store anything when analytics binding is missing',async()=
 test('extractError never returns request headers or unknown fields',()=>{
   assert.equal(extractError({event:'app_error',code:'UNKNOWN',component:'ui',version:'0.8.3',name:'private'}).length,4);
   assert.equal(extractError({event:'session_start',code:'UNKNOWN',component:'ui',version:'0.8.3'}),null);
+});
+
+test('Global anti-abuse limit rejects excess traffic without storing a point', async()=>{
+  const {status,stored}=await probe({payload:{event:'app_error',code:'UNKNOWN',component:'ui',version:'0.8.5'},rateAllowed:false});
+  assert.equal(status,429);
+  assert.equal(stored.length,0);
+});
+test('Fail closed when rate-limit binding is missing',async()=>{
+  let stored=0;
+  const r=await worker.fetch(new Request('https://test.invalid/v1/error',{
+    method:'POST',headers:{Origin:'https://mastyuk.github.io'},body:JSON.stringify({event:'app_error',code:'UNKNOWN',component:'ui',version:'0.8.5'})
+  }),{ERROR_EVENTS:{writeDataPoint(){stored++;}}});
+  assert.equal(r.status,403);
+  assert.equal(stored,0);
+  const acceptedOrigin=await worker.fetch(new Request('https://test.invalid/v1/error',{
+    method:'POST',headers:{Origin:'https://mastyukov.github.io'},body:JSON.stringify({event:'app_error',code:'UNKNOWN',component:'ui',version:'0.8.5'})
+  }),{ERROR_EVENTS:{writeDataPoint(){stored++;}}});
+  assert.equal(acceptedOrigin.status,503);
+  assert.equal(stored,0);
 });
