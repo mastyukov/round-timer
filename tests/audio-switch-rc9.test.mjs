@@ -22,7 +22,7 @@ test('RC9 selection pauses safely, saves time and updates the visible mode',()=>
 });
 test('RC9 retains countdown, offline and privacy protections',()=>{
  const app=src('app.mjs'),sw=src('sw.js');
- assert(sw.includes('round-timer-shell-v0.8.6-switch-rc9'));
+ assert(sw.includes('round-timer-shell-v0.8.6-retire-rc10'));
  assert(app.includes("sessionMix.begin()"));
  assert(app.includes("sessionMix.stop()"));
  assert(app.includes("cueLatencyLabel"));
