@@ -84,6 +84,6 @@ test('held audio session returns to prior category on Home or PAUSE',()=>{
 test('held mode refuses unsupported API without interrupting playback',()=>{
  const h=harness({session:null});
  assert.equal(h.duck.begin(),false);
- const rejected=harness({session:{get type(){return 'auto';},set type(){throw Error('blocked');}}});
+ const rejected=harness({session:{get type(){return 'auto';},set type(value){throw Error('blocked');}}});
  assert.equal(rejected.duck.begin(),false);
 });
