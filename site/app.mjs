@@ -1,7 +1,8 @@
-import {createDiagnosticSender,attachBrowserErrorCapture} from './diagnostics/sender.mjs';
-const DIAGNOSTICS_VERSION='0.8.5';
+import {createDiagnosticSender,attachBrowserErrorCapture,productionDiagnosticEndpoint} from './diagnostics/sender.mjs';
+import {createDelayedStartGuard,createActiveSoundController,createAudioInterruptionGuard} from './audio-guard.mjs';
+const DIAGNOSTICS_VERSION='0.8.6';
 const diagnosticSender=createDiagnosticSender({
-  endpoint:'https://round-timer-error-receiver.mastyukov.workers.dev/v1/error'
+  endpoint:productionDiagnosticEndpoint(globalThis.location,'https://round-timer-error-receiver.mastyukov.workers.dev/v1/error')
 });
 attachBrowserErrorCapture({target:window,sender:diagnosticSender,version:DIAGNOSTICS_VERSION});
 // Error-only telemetry; no usage, no personal information and no UI changes.
@@ -41,6 +42,14 @@ function unlockAudio(){try{audioContext ||= new (window.AudioContext||window.web
 const SOUND_PATHS={start:'./sounds/gong-start.mp3',end:'./sounds/gong-end.mp3',clack:'./sounds/woodclack.mp3'};
 const soundBuffers={};
 let soundsLoading=null;
+const activeSounds=createActiveSoundController();
+const delayedStartGong=createDelayedStartGuard({
+  canPlay: context=>!!context.sessionRef && session===context.sessionRef &&
+    session.status==='running' && !document.hidden && !audioInterruption.interrupted &&
+    audioContext?.state==='running' && !!soundBuffers.start &&
+    phaseNow().key===context.phaseKey,
+  play: ()=>sound('start'),
+});
 function preloadSounds(){
  if(soundsLoading||!audioContext)return soundsLoading;
  soundsLoading=Promise.all(Object.entries(SOUND_PATHS).map(async([name,url])=>{
@@ -50,23 +59,30 @@ function preloadSounds(){
  }));return soundsLoading;
 }
 function sound(type){
- if(document.hidden||!audioContext||audioContext.state!=='running')return;
+ if(document.hidden||audioInterruption.interrupted||!audioContext||audioContext.state!=='running')return;
  const kind=type==='start'?'start':(type==='end'||type==='done')?'end':'clack';
  const sample=soundBuffers[kind];
  if(!sample){
    const loading=preloadSounds();
-   if(type==='start'&&loading)loading.then(()=>{if(!document.hidden&&audioContext?.state==='running'&&soundBuffers.start)sound('start');});
+   if(type==='start'&&loading&&session)delayedStartGong.schedule(loading,{
+     sessionRef:session,phaseKey:phaseNow().key
+   });
    return;
  }
  const offsets=type==='slow-double'?[0,.25]:type==='double'?[0,.145]:[0];
- const now=audioContext.currentTime+.008;
  for(const offset of offsets){
-   const source=audioContext.createBufferSource(),gain=audioContext.createGain();
-   source.buffer=sample;gain.gain.value=kind==='clack'?.96:.9;
-   source.connect(gain).connect(audioContext.destination);
-   source.start(now+offset);
+   try {activeSounds.play({context:audioContext,buffer:sample,offset,volume:kind==='clack'?.96:.9});}
+   catch(_){void diagnosticSender.report({event:'audio_failure',code:'AUDIO_PLAY_REJECTED',component:'audio',version:DIAGNOSTICS_VERSION});}
  }
 }
+function stopActiveAudio({fadeMs=16}={}){
+ delayedStartGong.invalidate();
+ activeSounds.stopAll({fadeMs});
+}
+const audioInterruption=createAudioInterruptionGuard({
+ windowTarget:window,documentTarget:document,
+ stop:reason=>stopActiveAudio({fadeMs:reason==='blur'?12:0}),
+});
 async function ensureScreenOn(){if(!('wakeLock' in navigator)||document.hidden||!session||session.status!=='running')return;if(wakeLock&&!wakeLock.released)return;try{wakeLock=await navigator.wakeLock.request('screen');}catch(_){}}
 async function releaseScreenOn(){if(!wakeLock)return;try{await wakeLock.release();}catch(_){}wakeLock=null;}
 // Fixed reference measurement prevents seconds changing the physical width of the display.
@@ -138,9 +154,12 @@ function draw({notify=true}={}) {
   lastPhase=session?phase:null;
 }
 function startPause(){
-  unlockAudio();
+  // Every button action invalidates delayed initial gong requests.
+  delayedStartGong.invalidate();
   const current=session&&phaseNow();
   if(!session||current?.type==='done'){
+    stopActiveAudio();
+    unlockAudio();
     config=readConfig();updateInputs(config);
     session={status:'running',config,elapsedBeforeMs:0,resumedAt:Date.now()};
     el.settings.open=false;lastPhase=null;
@@ -148,11 +167,12 @@ function startPause(){
     else if(config.prepare<=5)sound('single');
     ensureScreenOn();
   } else if(session.status==='running'){
+    stopActiveAudio();
     session.elapsedBeforeMs=elapsedNow();session.resumedAt=0;session.status='paused';releaseScreenOn();
-  } else {session.status='running';session.resumedAt=Date.now();ensureScreenOn();}
+  } else {unlockAudio();session.status='running';session.resumedAt=Date.now();ensureScreenOn();}
   save();draw({notify:false});
 }
-function reset(){session=null;lastPhase=null;config=readConfig();save();releaseScreenOn();draw({notify:false});}
+function reset(){stopActiveAudio();session=null;lastPhase=null;config=readConfig();save();releaseScreenOn();draw({notify:false});}
 el.start.addEventListener('click',startPause);
 el.reset.addEventListener('click',reset);
 el.form.addEventListener('change',()=>{if(!session){config=readConfig();draw({notify:false});}});

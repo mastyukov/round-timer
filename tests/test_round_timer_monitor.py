@@ -1,7 +1,7 @@
 import unittest
 from datetime import date
 from unittest.mock import patch
-from scripts.round_timer_monitor import is_due, extract_rows, signature, marker, last_day, reconcile, SQL
+from scripts.round_timer_monitor import is_due, extract_rows, signature, marker, last_day, reconcile, SQL, read_aggregates
 
 SAMPLE = {"event":"audio_failure","code":"AUDIO_PLAY_REJECTED","component":"audio","version":"0.8.5","total":4}
 
@@ -72,6 +72,16 @@ class MonitorTests(unittest.TestCase):
             self.assertEqual(reconcile([SAMPLE],"dummy","2026-11-14"),(0,1,0))
             self.assertEqual(gh.call_count,2)
             self.assertEqual(gh.call_args_list[0].args[3]["state"],"open")
+
+    def test_cloudflare_api_denial_is_explicit_fail_not_silent_empty_success(self):
+        with patch("scripts.round_timer_monitor.api", side_effect=RuntimeError("Remote API HTTP 403")):
+            with self.assertRaisesRegex(RuntimeError,"HTTP 403"):
+                read_aggregates("test-token")
+
+    def test_missing_cloudflare_account_never_creates_empty_report(self):
+        with patch("scripts.round_timer_monitor.api", return_value={"success":True,"result":[]}):
+            with self.assertRaisesRegex(RuntimeError,"exactly one account"):
+                read_aggregates("test-token")
 
 if __name__=="__main__":
     unittest.main()

@@ -45,9 +45,9 @@ test('Release contains no synthetic diagnostic test entrypoint or tracking',()=>
 });
 test('Service worker caches all app, diagnostic and privacy assets offline',()=>{
   const sw=txt('sw.js');
-  assert(sw.includes('round-timer-shell-v0.8.5'));
+  assert(sw.includes('round-timer-shell-v0.8.6-audio-rc2'));
   assert(!sw.includes('0.8.5-test'));
-  for(const path of ['diagnostics/sender.mjs','diagnostics/schema.mjs','privacy.html','sounds/gong-start.mp3','sounds/gong-end.mp3']){
+  for(const path of ['audio-guard.mjs','diagnostics/sender.mjs','diagnostics/schema.mjs','privacy.html','sounds/gong-start.mp3','sounds/gong-end.mp3']){
     assert(sw.includes('./'+path),path);
   }
   assert(txt('index.html').includes('href="./privacy.html"'));
@@ -56,15 +56,17 @@ test('Error reports cannot transmit private or workout fields',async()=>{
   let args;
   const send=createDiagnosticSender({
     endpoint:'https://round-timer-error-receiver.mastyukov.workers.dev/v1/error',
-    transport:async(...items)=>{args=items;}
+    transport:async(...items)=>{args=items;return {status:204,type:'cors'};},
+    idFactory:()=> '11111111-1111-4111-8111-111111111111'
   });
   assert.equal(await send.report({event:'workout_start',rounds:20,version:'0.8.5'}),false);
   assert.equal(await send.report({event:'audio_failure',code:'AUDIO_PLAY_REJECTED',component:'audio',version:'0.8.5',name:'Secret',ip:'192.0.2.3',stack:'secret text'}),true);
-  assert.deepEqual(JSON.parse(args[1].body),{event:'audio_failure',code:'AUDIO_PLAY_REJECTED',component:'audio',version:'0.8.5'});
+  assert.deepEqual(JSON.parse(args[1].body),{event:'audio_failure',code:'AUDIO_PLAY_REJECTED',component:'audio',version:'0.8.5',eventId:'11111111-1111-4111-8111-111111111111'});
   assert.equal(args[1].credentials,'omit');
   assert(!args[1].body.includes('Secret'));
 });
 test('No server/network does not block or throw in timer',async()=>{
-  const sender=createDiagnosticSender({endpoint:'https://invalid.example.test/err',transport:async()=>{throw Error('offline')}});
-  assert.equal(await sender.report({event:'app_error',code:'UNKNOWN',component:'ui',version:'0.8.5'}),false);
+  const sender=createDiagnosticSender({endpoint:'https://invalid.example.test/err',transport:async()=>{throw Error('offline')},idFactory:()=> '22222222-2222-4222-8222-222222222222'});
+  assert.equal(await sender.report({event:'app_error',code:'UNKNOWN',component:'ui',version:'0.8.5'}),true); // queued, not acknowledged
+  assert.equal(sender.pending,1);
 });
