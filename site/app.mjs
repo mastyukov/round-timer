@@ -1,5 +1,5 @@
 import {createDiagnosticSender,attachBrowserErrorCapture,productionDiagnosticEndpoint} from './diagnostics/sender.mjs';
-import {createDelayedStartGuard} from './audio-guard.mjs';
+import {createDelayedStartGuard,createActiveSoundController} from './audio-guard.mjs';
 const DIAGNOSTICS_VERSION='0.8.6';
 const diagnosticSender=createDiagnosticSender({
   endpoint:productionDiagnosticEndpoint(globalThis.location,'https://round-timer-error-receiver.mastyukov.workers.dev/v1/error')
@@ -42,6 +42,7 @@ function unlockAudio(){try{audioContext ||= new (window.AudioContext||window.web
 const SOUND_PATHS={start:'./sounds/gong-start.mp3',end:'./sounds/gong-end.mp3',clack:'./sounds/woodclack.mp3'};
 const soundBuffers={};
 let soundsLoading=null;
+const activeSounds=createActiveSoundController();
 const delayedStartGong=createDelayedStartGuard({
   canPlay: context=>!!context.sessionRef && session===context.sessionRef &&
     session.status==='running' && !document.hidden &&
@@ -69,13 +70,14 @@ function sound(type){
    return;
  }
  const offsets=type==='slow-double'?[0,.25]:type==='double'?[0,.145]:[0];
- const now=audioContext.currentTime+.008;
  for(const offset of offsets){
-   const source=audioContext.createBufferSource(),gain=audioContext.createGain();
-   source.buffer=sample;gain.gain.value=kind==='clack'?.96:.9;
-   source.connect(gain).connect(audioContext.destination);
-   source.start(now+offset);
+   try {activeSounds.play({context:audioContext,buffer:sample,offset,volume:kind==='clack'?.96:.9});}
+   catch(_){void diagnosticSender.report({event:'audio_failure',code:'AUDIO_PLAY_REJECTED',component:'audio',version:DIAGNOSTICS_VERSION});}
  }
+}
+function stopActiveAudio({fadeMs=16}={}){
+ delayedStartGong.invalidate();
+ activeSounds.stopAll({fadeMs});
 }
 async function ensureScreenOn(){if(!('wakeLock' in navigator)||document.hidden||!session||session.status!=='running')return;if(wakeLock&&!wakeLock.released)return;try{wakeLock=await navigator.wakeLock.request('screen');}catch(_){}}
 async function releaseScreenOn(){if(!wakeLock)return;try{await wakeLock.release();}catch(_){}wakeLock=null;}
@@ -150,9 +152,10 @@ function draw({notify=true}={}) {
 function startPause(){
   // Every button action invalidates delayed initial gong requests.
   delayedStartGong.invalidate();
-  unlockAudio();
   const current=session&&phaseNow();
   if(!session||current?.type==='done'){
+    stopActiveAudio();
+    unlockAudio();
     config=readConfig();updateInputs(config);
     session={status:'running',config,elapsedBeforeMs:0,resumedAt:Date.now()};
     el.settings.open=false;lastPhase=null;
@@ -160,11 +163,12 @@ function startPause(){
     else if(config.prepare<=5)sound('single');
     ensureScreenOn();
   } else if(session.status==='running'){
+    stopActiveAudio();
     session.elapsedBeforeMs=elapsedNow();session.resumedAt=0;session.status='paused';releaseScreenOn();
-  } else {session.status='running';session.resumedAt=Date.now();ensureScreenOn();}
+  } else {unlockAudio();session.status='running';session.resumedAt=Date.now();ensureScreenOn();}
   save();draw({notify:false});
 }
-function reset(){delayedStartGong.invalidate();session=null;lastPhase=null;config=readConfig();save();releaseScreenOn();draw({notify:false});}
+function reset(){stopActiveAudio();session=null;lastPhase=null;config=readConfig();save();releaseScreenOn();draw({notify:false});}
 el.start.addEventListener('click',startPause);
 el.reset.addEventListener('click',reset);
 el.form.addEventListener('change',()=>{if(!session){config=readConfig();draw({notify:false});}});
@@ -173,11 +177,11 @@ el.closeSettings.addEventListener('click',()=>{el.settings.open=false;lastClockL
 document.addEventListener('keydown',event=>{if(event.key==='Escape'&&el.settings.open)el.settings.open=false;});
 el.form.addEventListener('submit',event=>event.preventDefault());
 document.addEventListener('visibilitychange',()=>{
-  if(document.hidden){delayedStartGong.invalidate();wasHidden=true;lastPhase=null;save();}
+  if(document.hidden){stopActiveAudio({fadeMs:8});wasHidden=true;lastPhase=null;save();}
   else{draw({notify:false});ensureScreenOn();wasHidden=false;}
 });
 window.addEventListener('pageshow',()=>draw({notify:false}));
-window.addEventListener('pagehide',save);
+window.addEventListener('pagehide',()=>{stopActiveAudio({fadeMs:0});save();});
 updateInputs(config);restore();draw({notify:false});
 setInterval(()=>{if(!document.hidden)draw({notify:true});},100);
 if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
