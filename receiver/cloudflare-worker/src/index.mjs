@@ -66,12 +66,13 @@ export default {
       if(!limit?.success)return response(429,origin);
     }catch{return response(503,origin);}
     try{
-      // KV is eventually consistent, not a transactional uniqueness guarantee.
-      // Save before Analytics Engine write to minimise sequential duplicate counts.
-      if(key)await env.ERROR_DEDUP_KV.put(key,'1',{expirationTtl:DEDUPE_TTL_SECONDS});
+      // Do not mark a dedupe key before the Analytics Engine write has
+      // returned: that could yield a false 204 on retry after a failed write.
+      // KV is eventually consistent, NOT a transactional exactly-once store.
       env.ERROR_EVENTS.writeDataPoint({
         blobs:safe.dimensions,doubles:[1],indexes:['round-timer-errors']
       });
+      if(key)await env.ERROR_DEDUP_KV.put(key,'1',{expirationTtl:DEDUPE_TTL_SECONDS});
     }catch{return response(503,origin);}
     // 204 confirms receiver processing; Analytics Engine persistence requires
     // independent aggregate verification. It is NOT an individual-storage proof.
