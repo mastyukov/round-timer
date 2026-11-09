@@ -1,8 +1,8 @@
 /**
- * Preview-only Audio Session experiment. Requests transient audio during short
- * cues to encourage iOS to reduce other apps' playback volume. The OS chooses
- * the reduction; it cannot be commanded to exactly 50%.
- * Never use transient-solo (which may interrupt other audio).
+ * Preview-only audio coexistence: 'transient' allows short HTML Audio cues
+ * to mix with other apps on the user's tested iPhone. It MAY reduce other
+ * volume, but the browser cannot request or guarantee a 50% reduction.
+ * Never request exclusive 'transient-solo' playback.
  */
 export function createAudioDucking({session=null,enabled=()=>false,
   schedule=(fn,ms)=>setTimeout(fn,ms),unschedule=id=>clearTimeout(id)}={}) {

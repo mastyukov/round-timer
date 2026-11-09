@@ -10,15 +10,16 @@ attachBrowserErrorCapture({target:window,sender:diagnosticSender,version:DIAGNOS
 // Error-only telemetry; no usage, no personal information and no UI changes.
 import {normalizeConfig,computePhase,formatTime,WORK_CHOICES,REST_CHOICES,ROUND_CHOICES,PREPARE_CHOICES,crossedCountdown} from './engine.mjs';
 const STORAGE_KEY='timer-active-session-v1';
-const PREVIEW_AUDIO_KEY='round-timer-preview-transport-v1';
-const PREVIEW_DUCK_KEY='round-timer-preview-ducking-v1';
+// RC6 preview resets earlier transport and speculative 50% options.
+const PREVIEW_AUDIO_KEY='round-timer-preview-transport-v2';
+const PREVIEW_MUSIC_KEY='round-timer-preview-music-mix-v1';
 const isPreview=globalThis.location?.origin==='https://mastyukov-cyber.github.io' &&
   globalThis.location?.pathname?.startsWith('/round-timer-pages-test/');
 let audioMode='web';
-let duckEnabled=isPreview;
+let musicMixEnabled=isPreview;
 if(isPreview){
   try{audioMode=localStorage.getItem(PREVIEW_AUDIO_KEY)==='web'?'web':'html';}catch(_){audioMode='html';}
-  try{duckEnabled=localStorage.getItem(PREVIEW_DUCK_KEY)!=='off';}catch(_){duckEnabled=true;}
+  try{musicMixEnabled=localStorage.getItem(PREVIEW_MUSIC_KEY)!=='off';}catch(_){musicMixEnabled=true;}
 }
 
 const byId=id=>document.getElementById(id);
@@ -56,7 +57,9 @@ const SOUND_PATHS={start:'./sounds/gong-start.mp3',end:'./sounds/gong-end.mp3',c
 const soundBuffers={};
 let soundsLoading=null;
 const activeSounds=createActiveSoundController();
-const ducking=createAudioDucking({session:isPreview?navigator.audioSession:null,enabled:()=>isPreview&&duckEnabled});
+// On the tested iPhone, HTML Audio + transient mixes with music without changing its volume.
+const sessionMix=createAudioDucking({session:isPreview?navigator.audioSession:null,
+  enabled:()=>isPreview&&audioMode==='html'&&musicMixEnabled});
 const htmlSounds=isPreview&&typeof window.Audio==='function'?
   createHtmlAudioController({
     makeAudio:path=>new window.Audio(path),
@@ -84,7 +87,7 @@ function preloadSounds(){
 function sound(type){
  if(document.hidden||audioInterruption.interrupted)return;
  if(audioMode==='html' && htmlSounds){
-   ducking.cue(type==='start'||type==='end'||type==='done'?2400:1100);
+   sessionMix.cue(type==='start'||type==='end'||type==='done'?2400:1100);
    htmlSounds.play(type);
    return;
  }
@@ -98,7 +101,6 @@ function sound(type){
    });
    return;
  }
- ducking.cue(kind==='clack'?1100:2400);
  const offsets=type==='slow-double'?[0,.25]:type==='double'?[0,.145]:[0];
  for(const offset of offsets){
    try {activeSounds.play({context:audioContext,buffer:sample,offset,volume:kind==='clack'?.96:.9});}
@@ -109,7 +111,7 @@ function stopActiveAudio({fadeMs=16}={}){
  delayedStartGong.invalidate();
  activeSounds.stopAll({fadeMs});
  htmlSounds?.stopAll();
- ducking.stop();
+ sessionMix.stop();
 }
 const audioInterruption=createAudioInterruptionGuard({
  windowTarget:window,documentTarget:document,
@@ -117,12 +119,13 @@ const audioInterruption=createAudioInterruptionGuard({
 });
 // Test host only: one-choice transport control, never rendered in production.
 let audioModeSelect=null;
+let musicMixLabel=null;
 if(isPreview && htmlSounds){
  const label=document.createElement('label');
- label.textContent='ДВИЖОК ЗВУКА · ТЕСТ';
+ label.textContent='ЗВУК ТАЙМЕРА · ТЕСТ';
  label.style.gridColumn='1/-1';
  const select=document.createElement('select');
- for(const [value,title] of [['html','HTML Audio (эксперимент)'],['web','Web Audio (прежний)']]){
+ for(const [value,title] of [['html','HTML Audio (для музыки)'],['web','Web Audio (сравнение)']]){
    const option=document.createElement('option');option.value=value;option.textContent=title;select.append(option);
  }
  select.value=audioMode;label.append(select);
@@ -131,33 +134,38 @@ if(isPreview && htmlSounds){
    if(session && session.status==='running'){select.value=audioMode;return;}
    stopActiveAudio({fadeMs:0});
    audioMode=select.value==='web'?'web':'html';
+   if(musicMixLabel)musicMixLabel.hidden=audioMode!=='html';
    try{localStorage.setItem(PREVIEW_AUDIO_KEY,audioMode);}catch(_){}
  });
  audioModeSelect=select;
 }
-let duckSelect=null;
+let musicMixSelect=null;
 if(isPreview){
   const label=document.createElement('label');
-  label.textContent='ПРИГЛУШАТЬ МУЗЫКУ · ЭКСПЕРИМЕНТ';
+  label.textContent='МУЗЫКА ПРИ СИГНАЛАХ · ТЕСТ';
   label.style.gridColumn='1/-1';
   const select=document.createElement('select');
-  for(const [value,title] of [['on','ВКЛ · цель ≈50%'],['off','ВЫКЛ · без приглушения']]){
+  for(const [value,title] of [
+    ['on','ВКЛ · музыка играет вместе'],
+    ['off','ВЫКЛ · музыка может прерваться']
+  ]){
     const option=document.createElement('option');option.value=value;option.textContent=title;select.append(option);
   }
-  select.value=duckEnabled?'on':'off';
-  if(!ducking.supported){
-    select.value='off';select.disabled=true;duckEnabled=false;
-    label.textContent='ПРИГЛУШЕНИЕ НЕДОСТУПНО НА ЭТОМ iOS';
+  select.value=musicMixEnabled?'on':'off';
+  if(!sessionMix.supported){
+    select.value='off';select.disabled=true;musicMixEnabled=false;
+    label.textContent='СОВМЕСТНЫЙ ЗВУК НЕДОСТУПЕН НА ЭТОМ iOS';
   }
   label.append(select);
+  label.hidden=audioMode!=='html';
   el.form.insertBefore(label,el.closeSettings);
   select.addEventListener('change',()=>{
-    if(session && session.status==='running'){select.value=duckEnabled?'on':'off';return;}
-    ducking.stop();
-    duckEnabled=select.value==='on'&&ducking.supported;
-    try{localStorage.setItem(PREVIEW_DUCK_KEY,duckEnabled?'on':'off');}catch(_){}
+    if(session && session.status==='running'){select.value=musicMixEnabled?'on':'off';return;}
+    sessionMix.stop();
+    musicMixEnabled=select.value==='on'&&sessionMix.supported;
+    try{localStorage.setItem(PREVIEW_MUSIC_KEY,musicMixEnabled?'on':'off');}catch(_){}
   });
-  duckSelect=select;
+  musicMixLabel=label;musicMixSelect=select;
 }
 async function ensureScreenOn(){if(!('wakeLock' in navigator)||document.hidden||!session||session.status!=='running')return;if(wakeLock&&!wakeLock.released)return;try{wakeLock=await navigator.wakeLock.request('screen');}catch(_){}}
 async function releaseScreenOn(){if(!wakeLock)return;try{await wakeLock.release();}catch(_){}wakeLock=null;}
@@ -215,7 +223,7 @@ function draw({notify=true}={}) {
   const locked=!!session&&type!=='done';
   for(const input of [el.work,el.rest,el.rounds,el.prepare])input.disabled=locked;
   if(audioModeSelect)audioModeSelect.disabled=locked;
-  if(duckSelect)duckSelect.disabled=locked||!ducking.supported;
+  if(musicMixSelect)musicMixSelect.disabled=locked||audioMode!=='html'||!sessionMix.supported;
   if(locked&&el.settings.open)el.settings.open=false;
   if(session&&session.status==='running'&&type==='done')releaseScreenOn();
   if(notify&&session&&session.status==='running'&&lastPhase&&!document.hidden){
