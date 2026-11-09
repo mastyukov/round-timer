@@ -54,7 +54,7 @@ function fakeAudioContext() {
         startAt:null, stopAt:null, onended:null, buffer:null,
         connect() {}, disconnect() {},
         start(at) {this.startAt=at;},
-        stop(at) {if(this.stopAt!==null)throw Error('double stop');this.stopAt=at;}
+        stop(at) {this.stopAt=at;(this.stops||=[]).push(at);}
       };
       sources.push(source);
       return source;
@@ -145,4 +145,86 @@ test('audio controller tolerates an already-ended source during background shutd
   sources[0].onended();
   audio.stopAll({fadeMs:0});
   assert.equal(sources[0].stopAt,null);
+});
+
+function fakeEventTarget() {
+  const handlers=new Map();
+  return {
+    hidden:false,
+    addEventListener(name,callback){const s=handlers.get(name)||new Set();s.add(callback);handlers.set(name,s);},
+    removeEventListener(name,callback){handlers.get(name)?.delete(callback);},
+    dispatch(name){for(const callback of handlers.get(name)||[])callback();}
+  };
+}
+
+test('window blur preempts audio before visibilitychange; clock remains independent',async()=>{
+  const {createAudioInterruptionGuard,createActiveSoundController}=await import('../site/audio-guard.mjs');
+  const windowTarget=fakeEventTarget(),documentTarget=fakeEventTarget();
+  const {context,sources}=fakeAudioContext();
+  const active=createActiveSoundController();
+  const stops=[];
+  const clock={elapsedBeforeMs:0,resumedAt:1000,status:'running'};
+  active.play({context,buffer:{}});
+  const guard=createAudioInterruptionGuard({
+    windowTarget,documentTarget,
+    stop:reason=>{stops.push(reason);active.stopAll({fadeMs:reason==='blur'?12:0});}
+  });
+  windowTarget.dispatch('blur');
+  assert.equal(guard.interrupted,true);
+  assert.deepEqual(stops,['blur']);
+  assert.ok(sources[0].stopAt>context.currentTime);
+  assert.deepEqual(clock,{elapsedBeforeMs:0,resumedAt:1000,status:'running'});
+  documentTarget.hidden=true;
+  documentTarget.dispatch('visibilitychange');
+  assert.deepEqual(stops,['blur'],'hidden must not restart or duplicate stop');
+  windowTarget.dispatch('pagehide');
+  assert.deepEqual(stops,['blur','pagehide'],'pagehide must hard-stop a fading source');
+  assert.equal(sources[0].stopAt,context.currentTime);
+  documentTarget.hidden=false;
+  documentTarget.dispatch('visibilitychange');
+  assert.equal(guard.interrupted,false);
+  guard.dispose();
+});
+
+test('hidden before blur and focus while still hidden never unlock sound',async()=>{
+  const {createAudioInterruptionGuard}=await import('../site/audio-guard.mjs');
+  const windowTarget=fakeEventTarget(),documentTarget=fakeEventTarget(),calls=[];
+  const guard=createAudioInterruptionGuard({windowTarget,documentTarget,stop:reason=>calls.push(reason)});
+  documentTarget.hidden=true;
+  documentTarget.dispatch('visibilitychange');
+  windowTarget.dispatch('blur');
+  windowTarget.dispatch('focus');
+  assert.equal(guard.interrupted,true);
+  assert.deepEqual(calls,['hidden']);
+  documentTarget.hidden=false;windowTarget.dispatch('pageshow');
+  assert.equal(guard.interrupted,false);
+  windowTarget.dispatch('blur');
+  assert.deepEqual(calls,['hidden','blur']);
+  guard.dispose();windowTarget.dispatch('blur');
+  assert.deepEqual(calls,['hidden','blur']);
+});
+
+test('a hard stop can replace a pending fade without extending the sound',async()=>{
+  const {createActiveSoundController}=await import('../site/audio-guard.mjs');
+  const {context,sources,gainNodes}=fakeAudioContext();
+  const active=createActiveSoundController();
+  active.play({context,buffer:{}});
+  active.stopAll({fadeMs:16});
+  assert.equal(sources[0].stopAt,context.currentTime+.016);
+  active.stopAll({fadeMs:0});
+  assert.equal(sources[0].stopAt,context.currentTime);
+  assert.equal(gainNodes[0].gain.value,0);
+  sources[0].onended();
+  active.stopAll({fadeMs:0});
+  assert.equal(sources[0].stops.length,2);
+});
+
+test('a repeated fade never reschedules the same sound',async()=>{
+  const {createActiveSoundController}=await import('../site/audio-guard.mjs');
+  const {context,sources}=fakeAudioContext();
+  const active=createActiveSoundController();
+  active.play({context,buffer:{}});
+  active.stopAll({fadeMs:12});
+  active.stopAll({fadeMs:12});
+  assert.equal(sources[0].stops.length,1);
 });
