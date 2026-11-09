@@ -29,7 +29,7 @@ test('transient session requests isolated to test HTML Audio; Web Audio unaffect
 });
 test('offline cache includes both transports and all original audible cues',()=>{
  const sw=src('sw.js');
- assert(sw.includes('round-timer-shell-v0.8.6-timing-rc8'));
+ assert(sw.includes('round-timer-shell-v0.8.6-switch-rc9'));
  for(const name of ['audio-duck.mjs','audio-guard.mjs','html-audio.mjs','app.mjs','sounds/gong-start.mp3','sounds/gong-end.mp3','sounds/woodclack.mp3']){
    assert(sw.includes("'./"+name+"'"),name);
  }
