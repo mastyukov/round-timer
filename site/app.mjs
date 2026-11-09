@@ -1,6 +1,7 @@
 import {createDiagnosticSender,attachBrowserErrorCapture,productionDiagnosticEndpoint} from './diagnostics/sender.mjs';
 import {createDelayedStartGuard,createActiveSoundController,createAudioInterruptionGuard} from './audio-guard.mjs';
 import {createHtmlAudioController} from './html-audio.mjs';
+import {createAudioDucking} from './audio-duck.mjs';
 const DIAGNOSTICS_VERSION='0.8.6';
 const diagnosticSender=createDiagnosticSender({
   endpoint:productionDiagnosticEndpoint(globalThis.location,'https://round-timer-error-receiver.mastyukov.workers.dev/v1/error')
@@ -10,11 +11,14 @@ attachBrowserErrorCapture({target:window,sender:diagnosticSender,version:DIAGNOS
 import {normalizeConfig,computePhase,formatTime,WORK_CHOICES,REST_CHOICES,ROUND_CHOICES,PREPARE_CHOICES,crossedCountdown} from './engine.mjs';
 const STORAGE_KEY='timer-active-session-v1';
 const PREVIEW_AUDIO_KEY='round-timer-preview-transport-v1';
+const PREVIEW_DUCK_KEY='round-timer-preview-ducking-v1';
 const isPreview=globalThis.location?.origin==='https://mastyukov-cyber.github.io' &&
   globalThis.location?.pathname?.startsWith('/round-timer-pages-test/');
 let audioMode='web';
+let duckEnabled=isPreview;
 if(isPreview){
   try{audioMode=localStorage.getItem(PREVIEW_AUDIO_KEY)==='web'?'web':'html';}catch(_){audioMode='html';}
+  try{duckEnabled=localStorage.getItem(PREVIEW_DUCK_KEY)!=='off';}catch(_){duckEnabled=true;}
 }
 
 const byId=id=>document.getElementById(id);
@@ -52,6 +56,7 @@ const SOUND_PATHS={start:'./sounds/gong-start.mp3',end:'./sounds/gong-end.mp3',c
 const soundBuffers={};
 let soundsLoading=null;
 const activeSounds=createActiveSoundController();
+const ducking=createAudioDucking({session:isPreview?navigator.audioSession:null,enabled:()=>isPreview&&duckEnabled});
 const htmlSounds=isPreview&&typeof window.Audio==='function'?
   createHtmlAudioController({
     makeAudio:path=>new window.Audio(path),
@@ -78,7 +83,11 @@ function preloadSounds(){
 }
 function sound(type){
  if(document.hidden||audioInterruption.interrupted)return;
- if(audioMode==='html' && htmlSounds){htmlSounds.play(type);return;}
+ if(audioMode==='html' && htmlSounds){
+   ducking.cue(type==='start'||type==='end'||type==='done'?2400:1100);
+   htmlSounds.play(type);
+   return;
+ }
  if(!audioContext||audioContext.state!=='running')return;
  const kind=type==='start'?'start':(type==='end'||type==='done')?'end':'clack';
  const sample=soundBuffers[kind];
@@ -89,6 +98,7 @@ function sound(type){
    });
    return;
  }
+ ducking.cue(kind==='clack'?1100:2400);
  const offsets=type==='slow-double'?[0,.25]:type==='double'?[0,.145]:[0];
  for(const offset of offsets){
    try {activeSounds.play({context:audioContext,buffer:sample,offset,volume:kind==='clack'?.96:.9});}
@@ -99,6 +109,7 @@ function stopActiveAudio({fadeMs=16}={}){
  delayedStartGong.invalidate();
  activeSounds.stopAll({fadeMs});
  htmlSounds?.stopAll();
+ ducking.stop();
 }
 const audioInterruption=createAudioInterruptionGuard({
  windowTarget:window,documentTarget:document,
@@ -123,6 +134,30 @@ if(isPreview && htmlSounds){
    try{localStorage.setItem(PREVIEW_AUDIO_KEY,audioMode);}catch(_){}
  });
  audioModeSelect=select;
+}
+let duckSelect=null;
+if(isPreview){
+  const label=document.createElement('label');
+  label.textContent='ПРИГЛУШАТЬ МУЗЫКУ · ЭКСПЕРИМЕНТ';
+  label.style.gridColumn='1/-1';
+  const select=document.createElement('select');
+  for(const [value,title] of [['on','ВКЛ · цель ≈50%'],['off','ВЫКЛ · без приглушения']]){
+    const option=document.createElement('option');option.value=value;option.textContent=title;select.append(option);
+  }
+  select.value=duckEnabled?'on':'off';
+  if(!ducking.supported){
+    select.value='off';select.disabled=true;duckEnabled=false;
+    label.textContent='ПРИГЛУШЕНИЕ НЕДОСТУПНО НА ЭТОМ iOS';
+  }
+  label.append(select);
+  el.form.insertBefore(label,el.closeSettings);
+  select.addEventListener('change',()=>{
+    if(session && session.status==='running'){select.value=duckEnabled?'on':'off';return;}
+    ducking.stop();
+    duckEnabled=select.value==='on'&&ducking.supported;
+    try{localStorage.setItem(PREVIEW_DUCK_KEY,duckEnabled?'on':'off');}catch(_){}
+  });
+  duckSelect=select;
 }
 async function ensureScreenOn(){if(!('wakeLock' in navigator)||document.hidden||!session||session.status!=='running')return;if(wakeLock&&!wakeLock.released)return;try{wakeLock=await navigator.wakeLock.request('screen');}catch(_){}}
 async function releaseScreenOn(){if(!wakeLock)return;try{await wakeLock.release();}catch(_){}wakeLock=null;}
@@ -180,6 +215,7 @@ function draw({notify=true}={}) {
   const locked=!!session&&type!=='done';
   for(const input of [el.work,el.rest,el.rounds,el.prepare])input.disabled=locked;
   if(audioModeSelect)audioModeSelect.disabled=locked;
+  if(duckSelect)duckSelect.disabled=locked||!ducking.supported;
   if(locked&&el.settings.open)el.settings.open=false;
   if(session&&session.status==='running'&&type==='done')releaseScreenOn();
   if(notify&&session&&session.status==='running'&&lastPhase&&!document.hidden){
