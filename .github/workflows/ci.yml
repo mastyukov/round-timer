@@ -2,7 +2,7 @@ name: FAST LANE CI — safe code checks (no deploy, no production secrets)
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'qa/round-timer-audio-lifecycle-20261109']
     paths:
       - 'site/**'
       - 'tests/**'
