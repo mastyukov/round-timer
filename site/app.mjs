@@ -87,7 +87,7 @@ function preloadSounds(){
 function sound(type){
  if(document.hidden||audioInterruption.interrupted)return;
  if(audioMode==='html' && htmlSounds){
-   sessionMix.cue(type==='start'||type==='end'||type==='done'?2400:1100);
+   sessionMix.begin(); // Hold until PAUSE/RESET/HOME, not per-gong timer.
    htmlSounds.play(type);
    return;
  }
@@ -142,11 +142,11 @@ if(isPreview && htmlSounds){
 let musicMixSelect=null;
 if(isPreview){
   const label=document.createElement('label');
-  label.textContent='МУЗЫКА ПРИ СИГНАЛАХ · ТЕСТ';
+  label.textContent='МУЗЫКА ПРИ СИГНАЛАХ · RC7';
   label.style.gridColumn='1/-1';
   const select=document.createElement('select');
   for(const [value,title] of [
-    ['on','ВКЛ · музыка играет вместе'],
+    ['on','ВКЛ · совместный режим на весь раунд'],
     ['off','ВЫКЛ · музыка может прерваться']
   ]){
     const option=document.createElement('option');option.value=value;option.textContent=title;select.append(option);

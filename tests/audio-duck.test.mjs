@@ -53,3 +53,37 @@ test('ducking window is bounded to at most 3 seconds',()=>{
   const h=harness();h.duck.cue(900000);
   assert.equal([...h.tasks.values()][0].ms,3000);
 });
+
+test('held mode does not restore after any cue timeout (the reported iPhone failure)',()=>{
+ const h=harness({session:{type:'ambient'}});
+ assert.equal(h.duck.begin(),true);
+ assert.equal(h.session.type,'transient');
+ assert.equal(h.tasks.size,0);
+ h.finish();
+ assert.equal(h.session.type,'transient','no return to ambient after gong ends');
+ h.duck.stop();
+ assert.equal(h.session.type,'ambient');
+});
+test('multiple gong/clack begins never toggle transient back to auto',()=>{
+ const set=[];
+ const session={value:'auto',get type(){return this.value;},set type(v){this.value=v;set.push(v);}};
+ const h=harness({session});
+ h.duck.begin();h.duck.begin();h.duck.begin();
+ assert.deepEqual(set,['transient']);
+ h.duck.stop();
+ assert.deepEqual(set,['transient','auto']);
+});
+test('held audio session returns to prior category on Home or PAUSE',()=>{
+ const h=harness({session:{type:'playback'}});
+ h.duck.begin();
+ assert.equal(h.session.type,'transient');
+ h.duck.stop();
+ assert.equal(h.session.type,'playback');
+ assert.equal(h.tasks.size,0);
+});
+test('held mode refuses unsupported API without interrupting playback',()=>{
+ const h=harness({session:null});
+ assert.equal(h.duck.begin(),false);
+ const rejected=harness({session:{get type(){return 'auto';},set type(){throw Error('blocked');}}});
+ assert.equal(rejected.duck.begin(),false);
+});
