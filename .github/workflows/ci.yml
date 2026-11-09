@@ -1,49 +1,74 @@
-name: FAST LANE CI (checks only; never deploys)
+name: FAST LANE CI — safe code checks (no deploy, no production secrets)
+
 on:
   push:
-    branches:
-      - setup/fast-lane-v1.3
-      - main
-      - setup/diagnostic-monitor-3d
-      - 'assistant/round-timer/**'
+    branches: [main, 'qa/round-timer-audio-lifecycle-20261109']
     paths:
-      - 'tests/**'
       - 'site/**'
+      - 'tests/**'
       - 'diagnostics/**'
-      - '.github/workflows/ci.yml'
+      - 'receiver/**'
+      - 'scripts/**'
+      - '.github/workflows/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'tests/**'
+      - 'diagnostics/**'
+      - 'receiver/**'
+      - 'scripts/**'
+      - '.github/workflows/**'
   workflow_dispatch:
+
 permissions:
   contents: read
+
+concurrency:
+  group: round-timer-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
+    name: Timer, offline, privacy, receiver, Python and regression
     runs-on: ubuntu-latest
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
-      - name: Verify static application
+        with:
+          persist-credentials: false
+      - name: Verify approved application assets and syntax
+        shell: bash
         run: |
+          set -euo pipefail
           test -s site/index.html
+          test -s site/privacy.html
           test -s site/sw.js
-          test -s site/sounds/gong-start.mp3
-          test -s site/sounds/gong-end.mp3
-          test -s site/sounds/woodclack.mp3
+          for asset in site/sounds/gong-start.mp3 site/sounds/gong-end.mp3 site/sounds/woodclack.mp3; do test -s "$asset"; done
           node --check site/app.mjs
           node --check site/engine.mjs
           node --check site/sw.js
-          node --check diagnostics/schema.mjs
           node --check site/diagnostics/schema.mjs
           node --check site/diagnostics/sender.mjs
-      - name: Unit tests (timer and privacy-safe diagnostic contract)
-        run: |
-          node --test tests/*.test.mjs
-          python3 -m unittest discover -s tests -p 'test_*.py' -v
-      - name: Validate PWA manifest
+          node --check diagnostics/schema.mjs
+          node --check diagnostics/sender.mjs
+          node --check receiver/cloudflare-worker/src/index.mjs
+      - name: All Node.js regression and synthetic browser-model tests
+        run: node --test tests/*.test.mjs
+      - name: All Python monitoring and release-guard tests
+        run: python3 -m unittest discover -s tests -p 'test_*.py' -v
+      - name: PWA manifest and privacy checks (never deploy)
         run: |
           python3 - <<'PY'
           import json
           from pathlib import Path
-          m = json.loads(Path('site/manifest.webmanifest').read_text())
-          assert m['display'] == 'standalone'
-          assert m['start_url'] == './'
-          assert 'round-timer-shell-v0.8.5' in Path('site/sw.js').read_text()
-          print('PWA baseline checks: PASS')
+          m=json.loads(Path('site/manifest.webmanifest').read_text())
+          assert m['display']=='standalone'
+          assert m['start_url']=='./'
+          assert m['scope']=='./'
+          assert m['name']=='Раунд таймер'
+          sw=Path('site/sw.js').read_text()
+          assert 'round-timer-shell-v' in sw
+          assert "diag_test" not in Path('site/app.mjs').read_text()
+          print('PASS: manifest, name, cache version and no user-visible test triggers')
           PY

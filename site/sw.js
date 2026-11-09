@@ -1,9 +1,9 @@
 // Offline-first service worker v0.8.5. Avoid waiting for a blocked/throttled CDN.
 // App shell and audio must be served from local CacheStorage after first install.
-const CACHE_NAME = 'round-timer-shell-v0.8.5';
+const CACHE_NAME = 'round-timer-shell-v0.8.6-mix-rc6';
 const SHELL = [
   './', './index.html', './styles.css', './app.mjs', './engine.mjs',
-  './diagnostics/sender.mjs', './diagnostics/schema.mjs',
+  './diagnostics/sender.mjs', './diagnostics/schema.mjs', './audio-guard.mjs', './html-audio.mjs', './audio-duck.mjs',
   './manifest.webmanifest', './privacy.html', './icons/icon-192.png', './icons/icon-512.png',
   './icons/apple-touch-icon.png', './sounds/gong-start.mp3',
   './sounds/gong-end.mp3', './sounds/woodclack.mp3'
