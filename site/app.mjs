@@ -1,5 +1,6 @@
 import {createDiagnosticSender,attachBrowserErrorCapture,productionDiagnosticEndpoint} from './diagnostics/sender.mjs';
 import {createDelayedStartGuard,createActiveSoundController,createAudioInterruptionGuard} from './audio-guard.mjs';
+import {createHtmlAudioController} from './html-audio.mjs';
 const DIAGNOSTICS_VERSION='0.8.6';
 const diagnosticSender=createDiagnosticSender({
   endpoint:productionDiagnosticEndpoint(globalThis.location,'https://round-timer-error-receiver.mastyukov.workers.dev/v1/error')
@@ -8,6 +9,14 @@ attachBrowserErrorCapture({target:window,sender:diagnosticSender,version:DIAGNOS
 // Error-only telemetry; no usage, no personal information and no UI changes.
 import {normalizeConfig,computePhase,formatTime,WORK_CHOICES,REST_CHOICES,ROUND_CHOICES,PREPARE_CHOICES,crossedCountdown} from './engine.mjs';
 const STORAGE_KEY='timer-active-session-v1';
+const PREVIEW_AUDIO_KEY='round-timer-preview-transport-v1';
+const isPreview=globalThis.location?.origin==='https://mastyukov-cyber.github.io' &&
+  globalThis.location?.pathname?.startsWith('/round-timer-pages-test/');
+let audioMode='web';
+if(isPreview){
+  try{audioMode=localStorage.getItem(PREVIEW_AUDIO_KEY)==='web'?'web':'html';}catch(_){audioMode='html';}
+}
+
 const byId=id=>document.getElementById(id);
 const el={work:byId('workInput'),rest:byId('restInput'),rounds:byId('roundsInput'),prepare:byId('prepareInput'),clock:byId('clock'),round:byId('roundLabel'),phase:byId('phaseLabel'),progress:byId('progressBar'),start:byId('startPauseButton'),reset:byId('resetButton'),settings:byId('settings'),closeSettings:byId('closeSettingsButton'),form:byId('settingsForm')};
 function durationLabel(sec) {
@@ -36,13 +45,22 @@ function restore(){try{
 }catch(_){}}
 function elapsedNow(){return session?session.elapsedBeforeMs+(session.status==='running'?Math.max(0,Date.now()-session.resumedAt):0):0;}
 function phaseNow(){return computePhase(config,elapsedNow());}
-function unlockAudio(){try{audioContext ||= new (window.AudioContext||window.webkitAudioContext)();audioContext.resume().then(preloadSounds).catch(()=>{void diagnosticSender.report({event:'audio_failure',code:'AUDIO_PLAY_REJECTED',component:'audio',version:DIAGNOSTICS_VERSION});});}catch(_){}}
+function unlockAudio(){if(audioMode==='html')return;try{audioContext ||= new (window.AudioContext||window.webkitAudioContext)();audioContext.resume().then(preloadSounds).catch(()=>{void diagnosticSender.report({event:'audio_failure',code:'AUDIO_PLAY_REJECTED',component:'audio',version:DIAGNOSTICS_VERSION});});}catch(_){}}
 // Original boxing-style sounds, not extracted from any third-party app.
 // Audio is unlocked on a direct button press; silence in the background is expected on iOS.
 const SOUND_PATHS={start:'./sounds/gong-start.mp3',end:'./sounds/gong-end.mp3',clack:'./sounds/woodclack.mp3'};
 const soundBuffers={};
 let soundsLoading=null;
 const activeSounds=createActiveSoundController();
+const htmlSounds=isPreview&&typeof window.Audio==='function'?
+  createHtmlAudioController({
+    makeAudio:path=>new window.Audio(path),
+    paths:SOUND_PATHS,
+    isActive:()=>!document.hidden&&!audioInterruption.interrupted,
+    onError:()=>{void diagnosticSender.report({event:'audio_failure',code:'AUDIO_PLAY_REJECTED',component:'audio',version:DIAGNOSTICS_VERSION});},
+  }):null;
+if(isPreview && !htmlSounds)audioMode='web';
+
 const delayedStartGong=createDelayedStartGuard({
   canPlay: context=>!!context.sessionRef && session===context.sessionRef &&
     session.status==='running' && !document.hidden && !audioInterruption.interrupted &&
@@ -59,7 +77,9 @@ function preloadSounds(){
  }));return soundsLoading;
 }
 function sound(type){
- if(document.hidden||audioInterruption.interrupted||!audioContext||audioContext.state!=='running')return;
+ if(document.hidden||audioInterruption.interrupted)return;
+ if(audioMode==='html' && htmlSounds){htmlSounds.play(type);return;}
+ if(!audioContext||audioContext.state!=='running')return;
  const kind=type==='start'?'start':(type==='end'||type==='done')?'end':'clack';
  const sample=soundBuffers[kind];
  if(!sample){
@@ -78,11 +98,32 @@ function sound(type){
 function stopActiveAudio({fadeMs=16}={}){
  delayedStartGong.invalidate();
  activeSounds.stopAll({fadeMs});
+ htmlSounds?.stopAll();
 }
 const audioInterruption=createAudioInterruptionGuard({
  windowTarget:window,documentTarget:document,
  stop:reason=>stopActiveAudio({fadeMs:reason==='blur'?12:0}),
 });
+// Test host only: one-choice transport control, never rendered in production.
+let audioModeSelect=null;
+if(isPreview && htmlSounds){
+ const label=document.createElement('label');
+ label.textContent='ДВИЖОК ЗВУКА · ТЕСТ';
+ label.style.gridColumn='1/-1';
+ const select=document.createElement('select');
+ for(const [value,title] of [['html','HTML Audio (эксперимент)'],['web','Web Audio (прежний)']]){
+   const option=document.createElement('option');option.value=value;option.textContent=title;select.append(option);
+ }
+ select.value=audioMode;label.append(select);
+ el.form.insertBefore(label,el.closeSettings);
+ select.addEventListener('change',()=>{
+   if(session && session.status==='running'){select.value=audioMode;return;}
+   stopActiveAudio({fadeMs:0});
+   audioMode=select.value==='web'?'web':'html';
+   try{localStorage.setItem(PREVIEW_AUDIO_KEY,audioMode);}catch(_){}
+ });
+ audioModeSelect=select;
+}
 async function ensureScreenOn(){if(!('wakeLock' in navigator)||document.hidden||!session||session.status!=='running')return;if(wakeLock&&!wakeLock.released)return;try{wakeLock=await navigator.wakeLock.request('screen');}catch(_){}}
 async function releaseScreenOn(){if(!wakeLock)return;try{await wakeLock.release();}catch(_){}wakeLock=null;}
 // Fixed reference measurement prevents seconds changing the physical width of the display.
@@ -138,6 +179,7 @@ function draw({notify=true}={}) {
   el.start.textContent=action;
   const locked=!!session&&type!=='done';
   for(const input of [el.work,el.rest,el.rounds,el.prepare])input.disabled=locked;
+  if(audioModeSelect)audioModeSelect.disabled=locked;
   if(locked&&el.settings.open)el.settings.open=false;
   if(session&&session.status==='running'&&type==='done')releaseScreenOn();
   if(notify&&session&&session.status==='running'&&lastPhase&&!document.hidden){
