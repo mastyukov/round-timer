@@ -1,5 +1,5 @@
 import {createDiagnosticSender,attachBrowserErrorCapture,productionDiagnosticEndpoint} from './diagnostics/sender.mjs';
-import {createDelayedStartGuard,createActiveSoundController} from './audio-guard.mjs';
+import {createDelayedStartGuard,createActiveSoundController,createAudioInterruptionGuard} from './audio-guard.mjs';
 const DIAGNOSTICS_VERSION='0.8.6';
 const diagnosticSender=createDiagnosticSender({
   endpoint:productionDiagnosticEndpoint(globalThis.location,'https://round-timer-error-receiver.mastyukov.workers.dev/v1/error')
@@ -45,7 +45,7 @@ let soundsLoading=null;
 const activeSounds=createActiveSoundController();
 const delayedStartGong=createDelayedStartGuard({
   canPlay: context=>!!context.sessionRef && session===context.sessionRef &&
-    session.status==='running' && !document.hidden &&
+    session.status==='running' && !document.hidden && !audioInterruption.interrupted &&
     audioContext?.state==='running' && !!soundBuffers.start &&
     phaseNow().key===context.phaseKey,
   play: ()=>sound('start'),
@@ -59,7 +59,7 @@ function preloadSounds(){
  }));return soundsLoading;
 }
 function sound(type){
- if(document.hidden||!audioContext||audioContext.state!=='running')return;
+ if(document.hidden||audioInterruption.interrupted||!audioContext||audioContext.state!=='running')return;
  const kind=type==='start'?'start':(type==='end'||type==='done')?'end':'clack';
  const sample=soundBuffers[kind];
  if(!sample){
@@ -79,6 +79,10 @@ function stopActiveAudio({fadeMs=16}={}){
  delayedStartGong.invalidate();
  activeSounds.stopAll({fadeMs});
 }
+const audioInterruption=createAudioInterruptionGuard({
+ windowTarget:window,documentTarget:document,
+ stop:reason=>stopActiveAudio({fadeMs:reason==='blur'?12:0}),
+});
 async function ensureScreenOn(){if(!('wakeLock' in navigator)||document.hidden||!session||session.status!=='running')return;if(wakeLock&&!wakeLock.released)return;try{wakeLock=await navigator.wakeLock.request('screen');}catch(_){}}
 async function releaseScreenOn(){if(!wakeLock)return;try{await wakeLock.release();}catch(_){}wakeLock=null;}
 // Fixed reference measurement prevents seconds changing the physical width of the display.
@@ -177,11 +181,11 @@ el.closeSettings.addEventListener('click',()=>{el.settings.open=false;lastClockL
 document.addEventListener('keydown',event=>{if(event.key==='Escape'&&el.settings.open)el.settings.open=false;});
 el.form.addEventListener('submit',event=>event.preventDefault());
 document.addEventListener('visibilitychange',()=>{
-  if(document.hidden){stopActiveAudio({fadeMs:8});wasHidden=true;lastPhase=null;save();}
+  if(document.hidden){wasHidden=true;lastPhase=null;save();}
   else{draw({notify:false});ensureScreenOn();wasHidden=false;}
 });
 window.addEventListener('pageshow',()=>draw({notify:false}));
-window.addEventListener('pagehide',()=>{stopActiveAudio({fadeMs:0});save();});
+window.addEventListener('pagehide',save);
 updateInputs(config);restore();draw({notify:false});
 setInterval(()=>{if(!document.hidden)draw({notify:true});},100);
 if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
