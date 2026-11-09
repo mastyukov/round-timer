@@ -1,6 +1,7 @@
 import {createDiagnosticSender,attachBrowserErrorCapture,productionDiagnosticEndpoint} from './diagnostics/sender.mjs';
 import {createDelayedStartGuard,createActiveSoundController,createAudioInterruptionGuard} from './audio-guard.mjs';
 import {createHtmlAudioController} from './html-audio.mjs';
+import {createWebAudioRetirement} from './web-audio-retire.mjs';
 import {createAudioDucking} from './audio-duck.mjs';
 const DIAGNOSTICS_VERSION='0.8.6';
 const diagnosticSender=createDiagnosticSender({
@@ -50,13 +51,33 @@ function restore(){try{
 }catch(_){}}
 function elapsedNow(){return session?session.elapsedBeforeMs+(session.status==='running'?Math.max(0,Date.now()-session.resumedAt):0):0;}
 function phaseNow(){return computePhase(config,elapsedNow());}
-function unlockAudio(){if(audioMode==='html')return;try{audioContext ||= new (window.AudioContext||window.webkitAudioContext)();audioContext.resume().then(preloadSounds).catch(()=>{void diagnosticSender.report({event:'audio_failure',code:'AUDIO_PLAY_REJECTED',component:'audio',version:DIAGNOSTICS_VERSION});});}catch(_){}}
+function unlockAudio(){
+ if(audioMode==='html')return;
+ try{
+   audioContext ||= new (window.AudioContext||window.webkitAudioContext)();
+   const context=audioContext,token=webRetirement.generation;
+   Promise.resolve(context.resume()).then(()=>{
+     if(webRetirement.isCurrent(context,token) && !document.hidden)preloadSounds();
+   }).catch(()=>{void diagnosticSender.report({event:'audio_failure',code:'AUDIO_PLAY_REJECTED',component:'audio',version:DIAGNOSTICS_VERSION});});
+ }catch(_){}
+}
 // Original boxing-style sounds, not extracted from any third-party app.
 // Audio is unlocked on a direct button press; silence in the background is expected on iOS.
 const SOUND_PATHS={start:'./sounds/gong-start.mp3',end:'./sounds/gong-end.mp3',clack:'./sounds/woodclack.mp3'};
 const soundBuffers={};
 let soundsLoading=null;
-const activeSounds=createActiveSoundController();
+let activeSounds=createActiveSoundController();
+const webRetirement=createWebAudioRetirement({
+  getContext:()=>audioContext,
+  reset:()=>{
+    audioContext=null;
+    soundsLoading=null;
+    for(const key of Object.keys(soundBuffers))delete soundBuffers[key];
+    // Release active nodes and any references to the old audio graph.
+    activeSounds=createActiveSoundController();
+  }
+});
+let webWasInterrupted=false;
 // Test-only measurement of the first clack's browser playback-start latency.
 // No telemetry is sent, and the approved audio files are not changed.
 let firstClackMeasured=false;
@@ -98,10 +119,20 @@ const delayedStartGong=createDelayedStartGuard({
 });
 function preloadSounds(){
  if(soundsLoading||!audioContext)return soundsLoading;
+ const context=audioContext,token=webRetirement.generation;
  soundsLoading=Promise.all(Object.entries(SOUND_PATHS).map(async([name,url])=>{
-   try {const resp=await fetch(url);if(!resp.ok)throw new Error('audio fetch failed');
-     soundBuffers[name]=await audioContext.decodeAudioData(await resp.arrayBuffer());}
-   catch(err){console.warn('Audio not available',name,err);void diagnosticSender.report({event:'audio_failure',code:'ASSET_LOAD_FAILED',component:'audio',version:DIAGNOSTICS_VERSION});}
+   try{
+     const resp=await fetch(url);
+     if(!resp.ok)throw new Error('audio fetch failed');
+     const raw=await resp.arrayBuffer();
+     if(!webRetirement.isCurrent(context,token))return;
+     const buffer=await context.decodeAudioData(raw);
+     if(webRetirement.isCurrent(context,token))soundBuffers[name]=buffer;
+   }catch(err){
+     if(!webRetirement.isCurrent(context,token))return;
+     console.warn('Audio not available',name,err);
+     void diagnosticSender.report({event:'audio_failure',code:'ASSET_LOAD_FAILED',component:'audio',version:DIAGNOSTICS_VERSION});
+   }
  }));return soundsLoading;
 }
 function sound(type){
@@ -135,8 +166,25 @@ function stopActiveAudio({fadeMs=16}={}){
 }
 const audioInterruption=createAudioInterruptionGuard({
  windowTarget:window,documentTarget:document,
- stop:reason=>stopActiveAudio({fadeMs:reason==='blur'?12:0}),
+ stop:reason=>{
+   const retire=isPreview&&audioMode==='web';
+   // Immediate mute first: short fades can be delayed by iOS suspension.
+   stopActiveAudio({fadeMs:retire?0:reason==='blur'?12:0});
+   if(retire){
+     webWasInterrupted=true;
+     webRetirement.retire(); // Destroy stale context, never resume old gong.
+   }
+ },
 });
+function endWebBackgroundReturn(){
+ if(!isPreview||audioMode!=='web'||!webWasInterrupted)return;
+ // Even if iOS delayed its background callback until foreground, the old
+ // context must never regain audible playback on return.
+ stopActiveAudio({fadeMs:0});
+ webRetirement.retire();
+ webWasInterrupted=false;
+}
+window.addEventListener('focus',endWebBackgroundReturn);
 // Test host only: one-choice transport control, never rendered in production.
 // A mode change is allowed during a running test, but pauses the clock
 // first so that the sound transport never changes in the middle of a cue.
@@ -314,9 +362,17 @@ document.addEventListener('keydown',event=>{if(event.key==='Escape'&&el.settings
 el.form.addEventListener('submit',event=>event.preventDefault());
 document.addEventListener('visibilitychange',()=>{
   if(document.hidden){wasHidden=true;lastPhase=null;save();}
-  else{draw({notify:false});ensureScreenOn();wasHidden=false;}
+  else{
+    endWebBackgroundReturn();
+    draw({notify:false});
+    ensureScreenOn();
+    wasHidden=false;
+  }
 });
-window.addEventListener('pageshow',()=>draw({notify:false}));
+window.addEventListener('pageshow',()=>{
+  endWebBackgroundReturn();
+  draw({notify:false}); // Never replay any skipped background gong/clacks.
+});
 window.addEventListener('pagehide',save);
 updateInputs(config);restore();draw({notify:false});
 setInterval(()=>{if(!document.hidden)draw({notify:true});},100);
