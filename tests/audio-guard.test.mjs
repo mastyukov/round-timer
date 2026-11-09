@@ -42,3 +42,79 @@ test('rejected audio loading causes no playback or unhandled errors',async()=>{
   createDelayedStartGuard({canPlay:()=>true,play:()=>n++}).schedule(ready.promise);
   ready.reject(Error('offline'));await settle();assert.equal(n,0);
 });
+
+function fakeAudioContext() {
+  const sources = [];
+  const gainNodes = [];
+  const context = {
+    currentTime: 12,
+    destination: {},
+    createBufferSource() {
+      const source = {
+        startAt:null, stopAt:null, onended:null, buffer:null,
+        connect() {}, disconnect() {},
+        start(at) {this.startAt=at;},
+        stop(at) {if(this.stopAt!==null)throw Error('double stop');this.stopAt=at;}
+      };
+      sources.push(source);
+      return source;
+    },
+    createGain() {
+      const changes=[];
+      const gain={
+        value:1,
+        cancelScheduledValues(at){changes.push(['cancel',at]);},
+        setValueAtTime(value,at){this.value=value;changes.push(['set',at]);},
+        linearRampToValueAtTime(value,at){this.value=value;changes.push(['ramp',at]);}
+      };
+      const node={gain,changes,connect(){},disconnect(){}};
+      gainNodes.push(node);
+      return node;
+    }
+  };
+  return {context,sources,gainNodes};
+}
+
+test('PAUSE stops a gong already playing and fades it out without double-stop',async()=>{
+  const {createActiveSoundController}=await import('../site/audio-guard.mjs');
+  const {context,sources,gainNodes}=fakeAudioContext();
+  const active=createActiveSoundController();
+  active.play({context,buffer:{},volume:.9});
+  assert.equal(sources.length,1);
+  assert.equal(sources[0].stopAt,null);
+  active.stopAll();
+  assert.ok(sources[0].stopAt>=context.currentTime);
+  assert.ok(sources[0].stopAt<=context.currentTime+.05);
+  assert.ok(gainNodes[0].changes.some(([type])=>type==='ramp'));
+  active.stopAll();
+  assert.equal(sources.length,1);
+});
+
+test('background stops all overlapping sounds, including scheduled clacks',async()=>{
+  const {createActiveSoundController}=await import('../site/audio-guard.mjs');
+  const {context,sources,gainNodes}=fakeAudioContext();
+  const active=createActiveSoundController();
+  active.play({context,buffer:{},offset:0});
+  active.play({context,buffer:{},offset:.25});
+  active.stopAll({fadeMs:8});
+  assert.equal(sources.length,2);
+  assert.ok(sources.every(source=>source.stopAt!==null));
+  assert.ok(sources.every(source=>source.stopAt<=context.currentTime+.01));
+  assert.ok(gainNodes.every(node=>node.changes.some(([type])=>type==='ramp')));
+});
+
+test('pagehide immediately silences sounds and subsequent start can play normally',async()=>{
+  const {createActiveSoundController}=await import('../site/audio-guard.mjs');
+  const {context,sources,gainNodes}=fakeAudioContext();
+  const active=createActiveSoundController();
+  active.play({context,buffer:{}});
+  active.stopAll({fadeMs:0});
+  assert.equal(sources[0].stopAt,context.currentTime);
+  assert.ok(gainNodes[0].changes.some(([type])=>type==='set'));
+  active.play({context,buffer:{}});
+  assert.equal(sources.length,2);
+  assert.equal(sources[1].stopAt,null);
+  sources[1].onended();
+  active.stopAll();
+  assert.equal(sources[1].stopAt,null);
+});
