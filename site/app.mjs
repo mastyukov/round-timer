@@ -1,7 +1,8 @@
-import {createDiagnosticSender,attachBrowserErrorCapture} from './diagnostics/sender.mjs';
-const DIAGNOSTICS_VERSION='0.8.5';
+import {createDiagnosticSender,attachBrowserErrorCapture,productionDiagnosticEndpoint} from './diagnostics/sender.mjs';
+import {createDelayedStartGuard} from './audio-guard.mjs';
+const DIAGNOSTICS_VERSION='0.8.6';
 const diagnosticSender=createDiagnosticSender({
-  endpoint:'https://round-timer-error-receiver.mastyukov.workers.dev/v1/error'
+  endpoint:productionDiagnosticEndpoint(globalThis.location,'https://round-timer-error-receiver.mastyukov.workers.dev/v1/error')
 });
 attachBrowserErrorCapture({target:window,sender:diagnosticSender,version:DIAGNOSTICS_VERSION});
 // Error-only telemetry; no usage, no personal information and no UI changes.
@@ -41,6 +42,13 @@ function unlockAudio(){try{audioContext ||= new (window.AudioContext||window.web
 const SOUND_PATHS={start:'./sounds/gong-start.mp3',end:'./sounds/gong-end.mp3',clack:'./sounds/woodclack.mp3'};
 const soundBuffers={};
 let soundsLoading=null;
+const delayedStartGong=createDelayedStartGuard({
+  canPlay: context=>!!context.sessionRef && session===context.sessionRef &&
+    session.status==='running' && !document.hidden &&
+    audioContext?.state==='running' && !!soundBuffers.start &&
+    phaseNow().key===context.phaseKey,
+  play: ()=>sound('start'),
+});
 function preloadSounds(){
  if(soundsLoading||!audioContext)return soundsLoading;
  soundsLoading=Promise.all(Object.entries(SOUND_PATHS).map(async([name,url])=>{
@@ -55,7 +63,9 @@ function sound(type){
  const sample=soundBuffers[kind];
  if(!sample){
    const loading=preloadSounds();
-   if(type==='start'&&loading)loading.then(()=>{if(!document.hidden&&audioContext?.state==='running'&&soundBuffers.start)sound('start');});
+   if(type==='start'&&loading&&session)delayedStartGong.schedule(loading,{
+     sessionRef:session,phaseKey:phaseNow().key
+   });
    return;
  }
  const offsets=type==='slow-double'?[0,.25]:type==='double'?[0,.145]:[0];
@@ -138,6 +148,8 @@ function draw({notify=true}={}) {
   lastPhase=session?phase:null;
 }
 function startPause(){
+  // Every button action invalidates delayed initial gong requests.
+  delayedStartGong.invalidate();
   unlockAudio();
   const current=session&&phaseNow();
   if(!session||current?.type==='done'){
@@ -152,7 +164,7 @@ function startPause(){
   } else {session.status='running';session.resumedAt=Date.now();ensureScreenOn();}
   save();draw({notify:false});
 }
-function reset(){session=null;lastPhase=null;config=readConfig();save();releaseScreenOn();draw({notify:false});}
+function reset(){delayedStartGong.invalidate();session=null;lastPhase=null;config=readConfig();save();releaseScreenOn();draw({notify:false});}
 el.start.addEventListener('click',startPause);
 el.reset.addEventListener('click',reset);
 el.form.addEventListener('change',()=>{if(!session){config=readConfig();draw({notify:false});}});
@@ -161,7 +173,7 @@ el.closeSettings.addEventListener('click',()=>{el.settings.open=false;lastClockL
 document.addEventListener('keydown',event=>{if(event.key==='Escape'&&el.settings.open)el.settings.open=false;});
 el.form.addEventListener('submit',event=>event.preventDefault());
 document.addEventListener('visibilitychange',()=>{
-  if(document.hidden){wasHidden=true;lastPhase=null;save();}
+  if(document.hidden){delayedStartGong.invalidate();wasHidden=true;lastPhase=null;save();}
   else{draw({notify:false});ensureScreenOn();wasHidden=false;}
 });
 window.addEventListener('pageshow',()=>draw({notify:false}));
