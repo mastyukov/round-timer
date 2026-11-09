@@ -138,6 +138,18 @@ const audioInterruption=createAudioInterruptionGuard({
  stop:reason=>stopActiveAudio({fadeMs:reason==='blur'?12:0}),
 });
 // Test host only: one-choice transport control, never rendered in production.
+// A mode change is allowed during a running test, but pauses the clock
+// first so that the sound transport never changes in the middle of a cue.
+function pausePreviewForAudioChange(){
+ if(!isPreview || !session || session.status!=='running')return false;
+ stopActiveAudio({fadeMs:0});
+ session.elapsedBeforeMs=elapsedNow();
+ session.resumedAt=0;
+ session.status='paused';
+ releaseScreenOn();
+ save();
+ return true;
+}
 let audioModeSelect=null;
 let musicMixLabel=null;
 if(isPreview && htmlSounds){
@@ -151,12 +163,13 @@ if(isPreview && htmlSounds){
  select.value=audioMode;label.append(select);
  el.form.insertBefore(label,el.closeSettings);
  select.addEventListener('change',()=>{
-   if(session && session.status==='running'){select.value=audioMode;return;}
+   pausePreviewForAudioChange();
    stopActiveAudio({fadeMs:0});
    audioMode=select.value==='web'?'web':'html';
    if(cueLatencyLabel)cueLatencyLabel.hidden=audioMode!=='html';
    if(musicMixLabel)musicMixLabel.hidden=audioMode!=='html';
    try{localStorage.setItem(PREVIEW_AUDIO_KEY,audioMode);}catch(_){}
+   draw({notify:false});
  });
  audioModeSelect=select;
 }
@@ -181,12 +194,19 @@ if(isPreview){
   label.hidden=audioMode!=='html';
   el.form.insertBefore(label,el.closeSettings);
   select.addEventListener('change',()=>{
-    if(session && session.status==='running'){select.value=musicMixEnabled?'on':'off';return;}
+    pausePreviewForAudioChange();
     sessionMix.stop();
     musicMixEnabled=select.value==='on'&&sessionMix.supported;
     try{localStorage.setItem(PREVIEW_MUSIC_KEY,musicMixEnabled?'on':'off');}catch(_){}
+    draw({notify:false});
   });
   musicMixLabel=label;musicMixSelect=select;
+}
+if(isPreview){
+  const tip=document.createElement('small');
+  tip.textContent='Смена звука автоматически ставит таймер на паузу';
+  tip.style.cssText='grid-column:1/-1;font-size:.72rem;color:#c9d7e7;line-height:1.2';
+  el.form.insertBefore(tip,el.closeSettings);
 }
 async function ensureScreenOn(){if(!('wakeLock' in navigator)||document.hidden||!session||session.status!=='running')return;if(wakeLock&&!wakeLock.released)return;try{wakeLock=await navigator.wakeLock.request('screen');}catch(_){}}
 async function releaseScreenOn(){if(!wakeLock)return;try{await wakeLock.release();}catch(_){}wakeLock=null;}
@@ -243,9 +263,12 @@ function draw({notify=true}={}) {
   el.start.textContent=action;
   const locked=!!session&&type!=='done';
   for(const input of [el.work,el.rest,el.rounds,el.prepare])input.disabled=locked;
-  if(audioModeSelect)audioModeSelect.disabled=locked;
-  if(musicMixSelect)musicMixSelect.disabled=locked||audioMode!=='html'||!sessionMix.supported;
-  if(locked&&el.settings.open)el.settings.open=false;
+  // Unlike workout duration fields, audio QA settings stay selectable.
+  if(audioModeSelect)audioModeSelect.disabled=false;
+  if(musicMixSelect)musicMixSelect.disabled=audioMode!=='html'||!sessionMix.supported;
+  // Keep test Settings open even during a running timer so the user can switch
+  // audio engines. Production preserves its original close-on-start behavior.
+  if(locked&&el.settings.open&&!isPreview)el.settings.open=false;
   if(session&&session.status==='running'&&type==='done')releaseScreenOn();
   if(notify&&session&&session.status==='running'&&lastPhase&&!document.hidden){
     if(phase.key!==lastPhase.key){
