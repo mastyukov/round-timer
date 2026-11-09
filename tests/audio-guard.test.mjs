@@ -118,3 +118,31 @@ test('pagehide immediately silences sounds and subsequent start can play normall
   active.stopAll();
   assert.equal(sources[1].stopAt,null);
 });
+
+test('quick PAUSE cancels both an already playing gong and a pending sound decode',async()=>{
+  const {createActiveSoundController}=await import('../site/audio-guard.mjs');
+  const {context,sources}=fakeAudioContext();
+  const audio=createActiveSoundController();
+  const loading=deferred();
+  let running=true,late=0;
+  const guard=createDelayedStartGuard({canPlay:()=>running,play:()=>late++});
+  audio.play({context,buffer:{}});
+  guard.schedule(loading.promise,{phase:'work'});
+  running=false;
+  guard.invalidate();
+  audio.stopAll();
+  loading.resolve();
+  await settle();
+  assert.equal(late,0);
+  assert.notEqual(sources[0].stopAt,null);
+});
+
+test('audio controller tolerates an already-ended source during background shutdown',async()=>{
+  const {createActiveSoundController}=await import('../site/audio-guard.mjs');
+  const {context,sources}=fakeAudioContext();
+  const audio=createActiveSoundController();
+  audio.play({context,buffer:{}});
+  sources[0].onended();
+  audio.stopAll({fadeMs:0});
+  assert.equal(sources[0].stopAt,null);
+});
