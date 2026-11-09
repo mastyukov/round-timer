@@ -34,7 +34,7 @@ export function createActiveSoundController() {
     gain.gain.value = volume;
     source.connect(gain);
     gain.connect(context.destination);
-    const entry = {source, gain, context};
+    const entry = {source, gain, context, stopping: false};
     const cleanup = () => {
       active.delete(entry);
       try { source.disconnect(); } catch (_) {}
@@ -47,8 +47,9 @@ export function createActiveSoundController() {
   }
   function stopAll({fadeMs = 16} = {}) {
     for (const entry of active) {
-      // Retire immediately: repeated pause/pagehide events must be harmless.
-      active.delete(entry);
+      // Keep fading nodes until onended. If pagehide follows blur/pause,
+      // an immediate stop must still be able to preempt a pending fade.
+      if (entry.stopping && fadeMs > 0) continue;
       const {source, gain, context} = entry;
       const now = context.currentTime;
       const fadeSeconds = Math.max(0, Math.min(0.05, fadeMs / 1000));
@@ -61,6 +62,7 @@ export function createActiveSoundController() {
           gain.gain.setValueAtTime(0, now);
         }
         source.stop(now + fadeSeconds);
+        entry.stopping = true;
       } catch (_) {
         try { gain.gain.value = 0; } catch (_) {}
         try { source.stop(0); } catch (_) {}
@@ -68,4 +70,49 @@ export function createActiveSoundController() {
     }
   }
   return Object.freeze({play, stopAll});
+}
+
+/**
+ * End foreground Web Audio on the earliest observable window-loss signal.
+ * On iOS, visibilitychange can arrive after audio output is interrupted;
+ * blur is an earlier opportunity, not a guarantee against WebKit glitches.
+ * This does not pause/alter the monotonic timer clock or request background audio.
+ */
+export function createAudioInterruptionGuard({windowTarget, documentTarget, stop}) {
+  if (!windowTarget?.addEventListener || !documentTarget?.addEventListener || typeof stop !== 'function') {
+    throw new TypeError('Audio interruption guard requires event targets and stop');
+  }
+  let interrupted = !!documentTarget.hidden;
+  const interrupt = reason => {
+    if (interrupted) {
+      // Even if already fading, pagehide should force an immediate hard stop.
+      if (reason === 'pagehide') stop(reason);
+      return;
+    }
+    interrupted = true;
+    stop(reason);
+  };
+  const restore = () => {
+    if (!documentTarget.hidden) interrupted = false;
+  };
+  const onBlur = () => interrupt('blur');
+  const onPageHide = () => interrupt('pagehide');
+  const onFocus = () => restore();
+  const onPageShow = () => restore();
+  const onVisibility = () => documentTarget.hidden ? interrupt('hidden') : restore();
+  windowTarget.addEventListener('blur', onBlur);
+  windowTarget.addEventListener('pagehide', onPageHide);
+  windowTarget.addEventListener('focus', onFocus);
+  windowTarget.addEventListener('pageshow', onPageShow);
+  documentTarget.addEventListener('visibilitychange', onVisibility);
+  return Object.freeze({
+    get interrupted() {return interrupted;},
+    dispose() {
+      windowTarget.removeEventListener('blur', onBlur);
+      windowTarget.removeEventListener('pagehide', onPageHide);
+      windowTarget.removeEventListener('focus', onFocus);
+      windowTarget.removeEventListener('pageshow', onPageShow);
+      documentTarget.removeEventListener('visibilitychange', onVisibility);
+    }
+  });
 }
