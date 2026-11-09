@@ -11,9 +11,9 @@
 | Полный расширенный CI PR #4 | PASS, 60/60 JS + 23/23 Python; run [42534931183](https://github.com/mastyukov/round-timer/actions/runs/42534931183) |
 | Восстановление SourceCraft из отдельного Git-зеркала | PASS: clone → git fsck → 30/30 JS, 21/21 Python; [42537554388](https://github.com/mastyukov/round-timer/actions/runs/42537554388). HEAD `034ddd0c7aa1349b9f396230765ff1a8584668a0`; `BACKUP_FRESHNESS: PASS` на момент проверки |
 | Синтетическая ошибка и исправление CI | [42533946468](https://github.com/mastyukov/round-timer/actions/runs/42533946468) — намеренная ошибка обнаружена (FAIL) → [42533978152](https://github.com/mastyukov/round-timer/actions/runs/42533978152) — исправление прошло (PASS). Только песочница |
-| Независимая защита от зависшего сетевого запроса | PASS: bounded timeout и повтор с тем же одноразовым ID; 2 новых сценария в `tests/diagnostic-queue.test.mjs`; [42537554375](https://github.com/mastyukov/round-timer/actions/runs/42537554375) |
+| Независимая защита от зависшего сетевого запроса | PASS: bounded timeout и повтор с тем же одноразовым ID; 2 новых сценария в `tests/diagnostic-queue.test.mjs`; [42538122298](https://github.com/mastyukov/round-timer/actions/runs/42538122298) |
 | Отправка технических данных с preview | PASS в unit-тесте: только рабочий origin/path может отправлять в производственный Cloudflare, тестовые адреса заблокированы |
-| Полный CI PR #6 | PASS, **63/63 JS + 23/23 Python**, проверки manifest/privacy; [42537554375](https://github.com/mastyukov/round-timer/actions/runs/42537554375) |
+| Полный CI PR #6 | PASS, **66/66 JS + 23/23 Python**, проверки manifest/privacy; [42538122298](https://github.com/mastyukov/round-timer/actions/runs/42538122298) |
 | Тестовый workflow уведомления о сбое | Изначальный PR #5 тест — FAIL; исправление изолировано в [PR #7](https://github.com/mastyukov/round-timer/pull/7), сухая проверка PASS, [42537475843](https://github.com/mastyukov/round-timer/actions/runs/42537475843). Настоящее уведомление НЕ запускалось |
 | GitHub Pages производство | Не менялось. Старый PASS: [42529961323](https://github.com/mastyukov/round-timer/actions/runs/42529961323) |
 
@@ -46,3 +46,11 @@
 
 ## Ресурсы
 Все действия — GitHub Connector и GitHub-hosted Actions. Mac: 0% CPU и 0 МБ новых локальных файлов, Mac включённым оставлять не требуется. Точные удалённые CPU/RAM/временный диск/помегабайтный cloud-трафик: **не измерено**. Длительности отдельных jobs доступны через GitHub Actions, но не доказывают измерения потребления процессора/памяти.
+
+## Дополнительная серверная интеграция (09.11.2026)
+
+- В PR №6 изменён порядок обработки: приёмник создаёт временный ключ дедупликации **после** успешного вызова записи в Analytics Engine, чтобы не возвращать ложное 204 после неудачной первой записи.
+- Синтетические тесты `tests/cloudflare-receiver.test.mjs`: после ошибки Analytics первая попытка возвращает 503, KV остаётся пустым, следующая успешная попытка возвращает 204; отказ KV после успешного write выдаёт 503, с риском повторного счёта при следующем запросе.
+- Новый `tests/synthetic-diagnostic-chain.test.mjs` использует только встроенную модель Worker + фиктивный transport: отправка четырёх кодовых полей, потерянный ACK, повтор с тем же UUID, одна запись в модель Analytics Engine. **Никаких внешних запросов и рабочих данных**.
+- Последний CI: [42538122298](https://github.com/mastyukov/round-timer/actions/runs/42538122298): **66/66 JS + 23/23 Python PASS**. SourceCraft [42538122252](https://github.com/mastyukov/round-timer/actions/runs/42538122252): restored SHA `034ddd0c...`, **30/30 JS + 21/21 Python PASS**, freshness PASS.
+- Предел доказательства: такие тесты моделируют браузер/приёмник, не доказывают реальное поведение iPhone/Cloudflare KV/Analytics в production, а scheduled ChatGPT ещё не работал самостоятельно.
