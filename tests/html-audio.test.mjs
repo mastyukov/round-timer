@@ -82,3 +82,42 @@ test('HTML transport handles unsupported autoplay without breaking timer',async(
  await new Promise(resolve=>setImmediate(resolve));
  assert.equal(fails,1);
 });
+
+test('HTML source requests preload without playback or audio-session change',()=>{
+ const loaded=[],elements=[];
+ const output=createHtmlAudioController({
+   makeAudio:src=>{const a={preload:null,autoplay:true,load(){loaded.push(src);},
+     pause(){},play(){return Promise.resolve();},muted:false,currentTime:0};elements.push(a);return a;},
+   paths:{start:'gongA',end:'gongB',clack:'clack'},
+   isActive:()=>false
+ });
+ assert.equal(output.play('single'),false);
+ assert.deepEqual(loaded,['gongA','gongB','clack','clack']);
+ assert(elements.every(el=>el.autoplay===false&&el.preload==='auto'));
+});
+test('test-only startup timing reports resolved play() delay once and cue kind',async()=>{
+ const events=[],started=[];
+ let t=1000;
+ const ctrl=createHtmlAudioController({
+   makeAudio:src=>({src,preload:null,muted:true,currentTime:0,pause(){},
+     play(){started.push(src);return Promise.resolve();}}),
+   paths:{start:'a',end:'b',clack:'c'},isActive:()=>true,
+   now:()=>{t+=125;return t;},
+   onTiming:e=>events.push(e)
+ });
+ ctrl.play('single');await Promise.resolve();await Promise.resolve();
+ assert.equal(started.length,1);
+ assert.deepEqual(events,[{kind:'clack1',delayMs:125}]);
+});
+test('after pause a stale pending play cannot produce misleading audio timing',async()=>{
+ let resolvePlay, events=[];
+ const ctrl=createHtmlAudioController({
+   makeAudio:src=>({src,preload:null,muted:true,currentTime:0,pause(){},
+     play(){return new Promise(resolve=>{resolvePlay=resolve;});}}),
+   paths:{start:'a',end:'b',clack:'c'},isActive:()=>true,
+   onTiming:e=>events.push(e)
+ });
+ ctrl.play('single');ctrl.stopAll();resolvePlay();
+ await Promise.resolve();await Promise.resolve();
+ assert.equal(events.length,0);
+});

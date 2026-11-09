@@ -57,6 +57,15 @@ const SOUND_PATHS={start:'./sounds/gong-start.mp3',end:'./sounds/gong-end.mp3',c
 const soundBuffers={};
 let soundsLoading=null;
 const activeSounds=createActiveSoundController();
+// Test-only measurement of the first clack's browser playback-start latency.
+// No telemetry is sent, and the approved audio files are not changed.
+let firstClackMeasured=false;
+const cueLatencyLabel=isPreview?document.createElement('small'):null;
+if(cueLatencyLabel){
+  cueLatencyLabel.textContent='Первый щелчок: задержка ещё не измерена';
+  cueLatencyLabel.style.cssText='grid-column:1/-1;font-size:.75rem;line-height:1.2;color:#c9d7e7';
+  el.form.insertBefore(cueLatencyLabel,el.closeSettings);
+}
 // On the tested iPhone, HTML Audio + transient mixes with music without changing its volume.
 const sessionMix=createAudioDucking({session:isPreview?navigator.audioSession:null,
   enabled:()=>isPreview&&audioMode==='html'&&musicMixEnabled});
@@ -65,9 +74,20 @@ const htmlSounds=isPreview&&typeof window.Audio==='function'?
     makeAudio:path=>new window.Audio(path),
     paths:SOUND_PATHS,
     isActive:()=>!document.hidden&&!audioInterruption.interrupted,
-    onError:()=>{void diagnosticSender.report({event:'audio_failure',code:'AUDIO_PLAY_REJECTED',component:'audio',version:DIAGNOSTICS_VERSION});},
+    onTiming:({kind,delayMs})=>{
+      if(kind!=='clack1'||firstClackMeasured||!cueLatencyLabel)return;
+      firstClackMeasured=true;
+      cueLatencyLabel.textContent='Первый щелчок: '+delayMs+' мс (начало по браузеру)';
+    },
+    onError:()=>{
+      if(!firstClackMeasured && cueLatencyLabel){
+        cueLatencyLabel.textContent='Звук: запуск ограничен браузером iOS';
+      }
+      void diagnosticSender.report({event:'audio_failure',code:'AUDIO_PLAY_REJECTED',component:'audio',version:DIAGNOSTICS_VERSION});
+    },
   }):null;
 if(isPreview && !htmlSounds)audioMode='web';
+if(cueLatencyLabel)cueLatencyLabel.hidden=audioMode!=='html';
 
 const delayedStartGong=createDelayedStartGuard({
   canPlay: context=>!!context.sessionRef && session===context.sessionRef &&
@@ -134,6 +154,7 @@ if(isPreview && htmlSounds){
    if(session && session.status==='running'){select.value=audioMode;return;}
    stopActiveAudio({fadeMs:0});
    audioMode=select.value==='web'?'web':'html';
+   if(cueLatencyLabel)cueLatencyLabel.hidden=audioMode!=='html';
    if(musicMixLabel)musicMixLabel.hidden=audioMode!=='html';
    try{localStorage.setItem(PREVIEW_AUDIO_KEY,audioMode);}catch(_){}
  });
@@ -245,6 +266,8 @@ function startPause(){
   const current=session&&phaseNow();
   if(!session||current?.type==='done'){
     stopActiveAudio();
+    firstClackMeasured=false;
+    if(cueLatencyLabel)cueLatencyLabel.textContent='Первый щелчок: задержка ещё не измерена';
     unlockAudio();
     config=readConfig();updateInputs(config);
     session={status:'running',config,elapsedBeforeMs:0,resumedAt:Date.now()};

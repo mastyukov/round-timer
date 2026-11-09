@@ -8,7 +8,7 @@
  */
 export function createHtmlAudioController({
   makeAudio, paths, isActive, schedule=(fn,ms)=>setTimeout(fn,ms),
-  unschedule=id=>clearTimeout(id), onError=()=>{}
+  unschedule=id=>clearTimeout(id), onError=()=>{}, onTiming=()=>{}, now=()=>Date.now()
 }) {
   if (typeof makeAudio!=='function'||typeof isActive!=='function') {
     throw new TypeError('HTML audio controller requires makeAudio and isActive');
@@ -22,6 +22,9 @@ export function createHtmlAudioController({
   for(const element of Object.values(elements)){
     element.preload='auto';
     element.autoplay=false;
+    // Safari may ignore preload hints; explicitly request buffering without
+    // starting playback or taking exclusive audio focus.
+    try{element.load?.();}catch(_){}
   }
   let generation=0, pending=null;
   function silence(element){
@@ -36,14 +39,19 @@ export function createHtmlAudioController({
     if(pending!==null){try{unschedule(pending);}catch(_){}pending=null;}
     for(const element of Object.values(elements))silence(element);
   }
-  function playElement(element,token){
+  function playElement(element,token,kind){
     if(token!==generation||!isActive())return;
+    const requestedAt=now();
     try{
       element.currentTime=0;
       element.muted=false;
       const attempt=element.play();
       void Promise.resolve(attempt).then(()=>{
-        if(token!==generation||!isActive())silence(element);
+        if(token!==generation||!isActive()){silence(element);return;}
+        // play() resolution is browser-side start, NOT actual Bluetooth sound
+        // output, which may be further delayed by the audio device.
+        const delayMs=Math.max(0,Math.round(now()-requestedAt));
+        try{onTiming({kind,delayMs});}catch(_){}
       }).catch(()=>{silence(element);onError('PLAY_REJECTED');});
     }catch(_){silence(element);onError('PLAY_REJECTED');}
   }
@@ -51,15 +59,15 @@ export function createHtmlAudioController({
     if(!isActive())return false;
     stopAll();
     const token=generation;
-    if(type==='start')playElement(elements.start,token);
-    else if(type==='end'||type==='done')playElement(elements.end,token);
+    if(type==='start')playElement(elements.start,token,'gong-start');
+    else if(type==='end'||type==='done')playElement(elements.end,token,'gong-end');
     else if(type==='slow-double'||type==='double'){
-      playElement(elements.clack1,token);
+      playElement(elements.clack1,token,'clack1');
       pending=schedule(()=>{
         pending=null;
-        playElement(elements.clack2,token);
+        playElement(elements.clack2,token,'clack2');
       },type==='slow-double'?250:145);
-    }else playElement(elements.clack1,token);
+    }else playElement(elements.clack1,token,'clack1');
     return true;
   }
   return Object.freeze({play,stopAll});
