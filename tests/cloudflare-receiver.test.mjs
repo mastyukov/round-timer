@@ -123,3 +123,36 @@ test('extractError projects four dimensions, only ephemeral optional ID',()=>{
  assert.equal(extractError({...event,event:'session_start'}),null);
  assert.equal(extractError({...event,eventId:'abc'}),null);
 });
+
+
+test('failed Analytics Engine write must NOT create a dedup key or false acknowledgement',async()=>{
+ const x=receiver();let fail=true;
+ const original=x.env.ERROR_EVENTS.writeDataPoint;
+ x.env.ERROR_EVENTS.writeDataPoint=(v)=>{
+   if(fail)throw new Error('synthetic Analytics Engine failure');
+   original(v);
+ };
+ const first=await x.send({...event,eventId});
+ assert.equal(first.status,503);
+ assert.equal(x.stored.length,0);
+ assert.equal(x.memory.size,0,'no stored error means no suppression key');
+ fail=false;
+ const retry=await x.send({...event,eventId});
+ assert.equal(retry.status,204);
+ assert.equal(x.stored.length,1);
+ assert.equal(x.memory.size,1);
+ const again=await x.send({...event,eventId});
+ assert.equal(again.status,204);
+ assert.equal(x.stored.length,1,'no duplicate after an acknowledged write');
+});
+
+test('KV commit failure never returns server receipt, even if Analytics Engine was called',async()=>{
+ const x=receiver();
+ x.env.ERROR_DEDUP_KV.put=async()=>{throw new Error('synthetic KV outage');};
+ const r=await x.send({...event,eventId});
+ assert.equal(r.status,503);
+ assert.equal(x.memory.size,0);
+ // A retry may recount in this partition (KV is not atomic with Analytics).
+ // Never claim exactly-once behaviour for this failure mode.
+ assert.equal(x.stored.length,1);
+});
