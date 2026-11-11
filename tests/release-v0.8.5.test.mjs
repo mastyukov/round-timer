@@ -43,7 +43,7 @@ test('Release contains no synthetic diagnostic test entrypoint or tracking',()=>
 });
 test('Service worker caches all app, diagnostic and privacy assets offline',()=>{
   const sw=txt('sw.js');
-  assert(sw.includes('round-timer-shell-v0.8.7-studio-rc11'));
+  assert(sw.includes('round-timer-shell-v0.8.8-audio-rc12'));
   assert(!sw.includes('0.8.5-test'));
   for(const path of ['audio-guard.mjs','diagnostics/sender.mjs','diagnostics/schema.mjs','privacy.html','sounds/gong-start.mp3','sounds/gong-end.mp3']){
     assert(sw.includes('./'+path),path);

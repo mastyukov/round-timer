@@ -29,29 +29,38 @@ export function createHtmlAudioController({
     try{element.load?.();}catch(_){}
   }
   let generation=0, pending=null;
+  // Track playing elements: Safari can buffer/seek when pausing an idle element.
+  const activeElements=new Set();
+  for(const element of Object.values(elements).filter(Boolean)){
+    element.addEventListener?.('ended',()=>activeElements.delete(element));
+  }
   function silence(element){
     // Mute before pause, so an iOS playback callback cannot make a
     // trailing fragment audible on return from the Home Screen.
     try{element.muted=true;}catch(_){}
     try{element.pause();}catch(_){}
     try{element.currentTime=0;}catch(_){}
+    activeElements.delete(element);
   }
   function stopAll({includeButton=true}={}){
     generation++;
     if(pending!==null){try{unschedule(pending);}catch(_){}pending=null;}
-    for(const [name,element] of Object.entries(elements)){
-      if(element&&(includeButton||name!=='button'))silence(element);
+    for(const element of [...activeElements]){
+      if(!includeButton&&(element===elements.button))continue;
+      silence(element);
     }
   }
   function playElement(element,token,kind){
     if(token!==generation||!isActive())return;
     const requestedAt=now();
     try{
-      element.currentTime=0;
+      if(element.currentTime>0.005)element.currentTime=0;
       element.muted=false;
+      activeElements.add(element);
       const attempt=element.play();
       void Promise.resolve(attempt).then(()=>{
-        if(token!==generation||!isActive()){silence(element);return;}
+        if(token!==generation)return; // Old completion may belong to a reused element.
+        if(!isActive()){silence(element);return;}
         // play() resolution is browser-side start, NOT actual Bluetooth sound
         // output, which may be further delayed by the audio device.
         const delayMs=Math.max(0,Math.round(now()-requestedAt));
@@ -78,10 +87,14 @@ export function createHtmlAudioController({
   function playButton(){
     if(!elements.button||!isActive())return false;
     try{
-      elements.button.pause();
-      elements.button.currentTime=0;
+      if(elements.button.paused===false)elements.button.pause();
+      if(elements.button.currentTime>0.005)elements.button.currentTime=0;
       elements.button.muted=false;
-      void Promise.resolve(elements.button.play()).catch(()=>onError('BUTTON_REJECTED'));
+      activeElements.add(elements.button);
+      void Promise.resolve(elements.button.play()).catch(()=>{
+        activeElements.delete(elements.button);
+        onError('BUTTON_REJECTED');
+      });
       return true;
     }catch(_){onError('BUTTON_REJECTED');return false;}
   }

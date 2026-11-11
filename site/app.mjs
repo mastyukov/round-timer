@@ -3,7 +3,7 @@ import {createDelayedStartGuard,createActiveSoundController,createAudioInterrupt
 import {createHtmlAudioController} from './html-audio.mjs';
 import {createWebAudioRetirement} from './web-audio-retire.mjs';
 import {createAudioDucking} from './audio-duck.mjs';
-const DIAGNOSTICS_VERSION='0.8.7';
+const DIAGNOSTICS_VERSION='0.8.8';
 const diagnosticSender=createDiagnosticSender({
   endpoint:productionDiagnosticEndpoint(globalThis.location,'https://round-timer-error-receiver.mastyukov.workers.dev/v1/error')
 });
@@ -14,6 +14,9 @@ const STORAGE_KEY='timer-active-session-v1';
 // RC6 preview resets earlier transport and speculative 50% options.
 const PREVIEW_AUDIO_KEY='round-timer-preview-transport-v2';
 const PREVIEW_MUSIC_KEY='round-timer-preview-music-mix-v1';
+// RC12 experiment: user observed ~1s late iPhone HTML cues. Advance foreground
+// work cues conservatively; physical Bluetooth latency is not guaranteed.
+const HTML_WORK_CUE_LEAD_MS=700;
 const isPreview=globalThis.location?.origin==='https://mastyukov-cyber.github.io' &&
   globalThis.location?.pathname?.startsWith('/round-timer-pages-test/');
 let audioMode='web';
@@ -278,9 +281,9 @@ function fitClock(force=false){
  const st=getComputedStyle(el.clock);
  ctx.font=`900 100px ${st.fontFamily}`;
  const raw=ctx.measureText('88:88').width-100*.055*4;
- const scaleX=portrait?1.2:1.587,scaleY=portrait?4.3164:1.587;
- const byWidth=(frame.clientWidth*.98)/(raw/100)/scaleX;
- const byHeight=(frame.clientHeight*.95)/scaleY;
+ const scaleX=portrait?(isPreview?1.26:1.2):(isPreview?1.62:1.587),scaleY=portrait?(isPreview?4.10:4.3164):(isPreview?1.62:1.587);
+ const byWidth=(frame.clientWidth*(isPreview?.995:.98))/(raw/100)/scaleX;
+ const byHeight=(frame.clientHeight*(isPreview?.975:.95))/scaleY;
  const size=Math.max(15,Math.min(byWidth,byHeight,620));
  el.clock.style.fontSize=`${size}px`;
  fitLabels();
@@ -290,7 +293,7 @@ function fitLabels(){
  const ctx=(fitClock.labelCanvas||(fitClock.labelCanvas=document.createElement('canvas'))).getContext('2d');
  for(const label of [el.round,el.phase]){
   const st=getComputedStyle(label),root=parseFloat(getComputedStyle(document.documentElement).fontSize)||16;
-  const ideal=label===el.round?(portrait?window.innerWidth*.09:window.innerHeight*.07):(portrait?window.innerWidth*.073:window.innerHeight*.05);
+  const ideal=label===el.round?(portrait?window.innerWidth*(isPreview?.094:.09):window.innerHeight*(isPreview?.075:.07)):(portrait?window.innerWidth*(isPreview?.077:.073):window.innerHeight*(isPreview?.054:.05));
   let size=Math.max(root*.82,Math.min(ideal,root*4.6));
   ctx.font=`900 ${size}px ${st.fontFamily}`;
   const expected=label.textContent||'РАУНД 12 / ∞';
@@ -332,13 +335,14 @@ function draw({notify=true}={}) {
       else if(phase.type==='done')sound('end');
     } else {
       // Skip catch-up bursts on delayed ticks (e.g., the tab was briefly throttled).
-      const ticks=crossedCountdown(lastPhase,phase);
+      const ticks=crossedCountdown(lastPhase,phase,isPreview&&audioMode==='html'&&phase.type==='work'?HTML_WORK_CUE_LEAD_MS:0);
       if(ticks.length===1)sound(isPreview?(ticks[0]===10?'ten-double':'single'):(ticks[0]===30||ticks[0]===10)?'slow-double':'single');
     }
   }
   lastPhase=session?phase:null;
 }
 function startPause(){
+  let startupCuePlayed=false;
   // Every button action invalidates delayed initial gong requests.
   delayedStartGong.invalidate();
   const current=session&&phaseNow();
@@ -352,12 +356,14 @@ function startPause(){
     el.settings.open=false;lastPhase=null;
     if(config.prepare===0)sound('start');
     else if(config.prepare<=5)sound('single');
+    startupCuePlayed=config.prepare<=5;
     ensureScreenOn();
   } else if(session.status==='running'){
     stopActiveAudio();
     session.elapsedBeforeMs=elapsedNow();session.resumedAt=0;session.status='paused';releaseScreenOn();
   } else {unlockAudio();session.status='running';session.resumedAt=Date.now();ensureScreenOn();}
   save();draw({notify:false});
+  return startupCuePlayed;
 }
 function reset(){stopActiveAudio();session=null;lastPhase=null;config=readConfig();save();releaseScreenOn();draw({notify:false});}
 function buttonSound(){
@@ -367,7 +373,7 @@ function buttonSound(){
    htmlSounds.playButton();
  } else sound('button');
 }
-el.start.addEventListener('click',()=>{startPause();buttonSound();});
+el.start.addEventListener('click',()=>{if(!startPause())buttonSound();});
 el.reset.addEventListener('click',()=>{reset();buttonSound();});
 el.form.addEventListener('change',()=>{if(!session){config=readConfig();draw({notify:false});}});
 el.settings.addEventListener('toggle',()=>{document.body.classList.toggle('settings-visible',el.settings.open);lastClockLayout='';requestAnimationFrame(()=>fitClock(true));});
