@@ -13,7 +13,7 @@ test('music setting truthfully describes real iPhone mixing behavior',()=>{
 });
 test('RC6 preview defaults reset to HTML Audio and music coexistence ON',()=>{
  const app=src('app.mjs');
- assert(app.includes("PREVIEW_AUDIO_KEY='round-timer-preview-transport-v2'"));
+ assert(app.includes("PREVIEW_AUDIO_KEY='round-timer-preview-transport-rc13-v1'"));
  assert(app.includes("PREVIEW_MUSIC_KEY='round-timer-preview-music-mix-v1'"));
  assert(app.includes("let musicMixEnabled=isPreview"));
  assert(app.includes("audioMode=localStorage.getItem(PREVIEW_AUDIO_KEY)==='web'?'web':'html'"));
@@ -29,7 +29,7 @@ test('transient session requests isolated to test HTML Audio; Web Audio unaffect
 });
 test('offline cache includes both transports and all original audible cues',()=>{
  const sw=src('sw.js');
- assert(sw.includes('round-timer-shell-v0.8.8-audio-rc12'));
+ assert(sw.includes('round-timer-shell-v0.8.9-recovery-rc13'));
  for(const name of ['audio-duck.mjs','audio-guard.mjs','html-audio.mjs','app.mjs','sounds/gong-start.mp3','sounds/gong-end.mp3','sounds/woodclack.mp3']){
    assert(sw.includes("'./"+name+"'"),name);
  }
