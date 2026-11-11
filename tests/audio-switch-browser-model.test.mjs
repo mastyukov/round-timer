@@ -100,6 +100,12 @@ test('RC13 supports explicit Web to HTML switch on the fresh preview preference 
    assert.equal(mix.disabled,true);
    mode.value='html';mode.fire('change');
    assert.equal(store.get('round-timer-preview-transport-rc13-v1'),'html');
+   assert.equal(nodes.startPauseButton.disabled,true,'settings modal blocks the START/PAUSE button');
+   nodes.startPauseButton.fire('click');
+   assert.equal(nodes.startPauseButton.textContent,'▶ ПРОДОЛЖИТЬ','background click is rejected');
+   nodes.settings.open=false;
+   nodes.settings.fire('toggle');
+   assert.equal(nodes.startPauseButton.disabled,false,'close restores button control');
    nodes.startPauseButton.fire('click');
    assert.equal(nodes.startPauseButton.textContent,'Ⅱ ПАУЗА');
    time+=1000;heartbeat();
