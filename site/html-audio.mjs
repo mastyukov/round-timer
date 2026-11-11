@@ -17,9 +17,11 @@ export function createHtmlAudioController({
     start:makeAudio(paths.start),
     end:makeAudio(paths.end),
     clack1:makeAudio(paths.clack),
-    clack2:makeAudio(paths.clack)
+    clack2:makeAudio(paths.clack),
+    double:paths.double?makeAudio(paths.double):null,
+    button:paths.button?makeAudio(paths.button):null
   };
-  for(const element of Object.values(elements)){
+  for(const element of Object.values(elements).filter(Boolean)){
     element.preload='auto';
     element.autoplay=false;
     // Safari may ignore preload hints; explicitly request buffering without
@@ -34,10 +36,12 @@ export function createHtmlAudioController({
     try{element.pause();}catch(_){}
     try{element.currentTime=0;}catch(_){}
   }
-  function stopAll(){
+  function stopAll({includeButton=true}={}){
     generation++;
     if(pending!==null){try{unschedule(pending);}catch(_){}pending=null;}
-    for(const element of Object.values(elements))silence(element);
+    for(const [name,element] of Object.entries(elements)){
+      if(element&&(includeButton||name!=='button'))silence(element);
+    }
   }
   function playElement(element,token,kind){
     if(token!==generation||!isActive())return;
@@ -57,10 +61,11 @@ export function createHtmlAudioController({
   }
   function play(type){
     if(!isActive())return false;
-    stopAll();
+    stopAll({includeButton:false});
     const token=generation;
     if(type==='start')playElement(elements.start,token,'gong-start');
     else if(type==='end'||type==='done')playElement(elements.end,token,'gong-end');
+    else if(type==='ten-double'&&elements.double)playElement(elements.double,token,'ten-double');
     else if(type==='slow-double'||type==='double'){
       playElement(elements.clack1,token,'clack1');
       pending=schedule(()=>{
@@ -70,5 +75,15 @@ export function createHtmlAudioController({
     }else playElement(elements.clack1,token,'clack1');
     return true;
   }
-  return Object.freeze({play,stopAll});
+  function playButton(){
+    if(!elements.button||!isActive())return false;
+    try{
+      elements.button.pause();
+      elements.button.currentTime=0;
+      elements.button.muted=false;
+      void Promise.resolve(elements.button.play()).catch(()=>onError('BUTTON_REJECTED'));
+      return true;
+    }catch(_){onError('BUTTON_REJECTED');return false;}
+  }
+  return Object.freeze({play,playButton,stopAll});
 }

@@ -3,7 +3,7 @@ import {createDelayedStartGuard,createActiveSoundController,createAudioInterrupt
 import {createHtmlAudioController} from './html-audio.mjs';
 import {createWebAudioRetirement} from './web-audio-retire.mjs';
 import {createAudioDucking} from './audio-duck.mjs';
-const DIAGNOSTICS_VERSION='0.8.6';
+const DIAGNOSTICS_VERSION='0.8.7';
 const diagnosticSender=createDiagnosticSender({
   endpoint:productionDiagnosticEndpoint(globalThis.location,'https://round-timer-error-receiver.mastyukov.workers.dev/v1/error')
 });
@@ -63,7 +63,14 @@ function unlockAudio(){
 }
 // Original boxing-style sounds, not extracted from any third-party app.
 // Audio is unlocked on a direct button press; silence in the background is expected on iOS.
-const SOUND_PATHS={start:'./sounds/gong-start.mp3',end:'./sounds/gong-end.mp3',clack:'./sounds/woodclack.mp3'};
+// RC11 studio recordings are TEST-only; production retains the approved originals.
+const SOUND_PATHS=isPreview?{
+ start:'./sounds/studio-gong-start.mp3',
+ end:'./sounds/studio-gong-end.mp3',
+ clack:'./sounds/woodclack-single.mp3',
+ double:'./sounds/woodclack-double.mp3',
+ button:'./sounds/button.mp3'
+}:{start:'./sounds/gong-start.mp3',end:'./sounds/gong-end.mp3',clack:'./sounds/woodclack.mp3'};
 const soundBuffers={};
 let soundsLoading=null;
 let activeSounds=createActiveSoundController();
@@ -143,7 +150,7 @@ function sound(type){
    return;
  }
  if(!audioContext||audioContext.state!=='running')return;
- const kind=type==='start'?'start':(type==='end'||type==='done')?'end':'clack';
+ const kind=type==='start'?'start':(type==='end'||type==='done')?'end':(isPreview&&type==='ten-double')?'double':(isPreview&&type==='button')?'button':'clack';
  const sample=soundBuffers[kind];
  if(!sample){
    const loading=preloadSounds();
@@ -326,7 +333,7 @@ function draw({notify=true}={}) {
     } else {
       // Skip catch-up bursts on delayed ticks (e.g., the tab was briefly throttled).
       const ticks=crossedCountdown(lastPhase,phase);
-      if(ticks.length===1)sound((ticks[0]===30||ticks[0]===10)?'slow-double':'single');
+      if(ticks.length===1)sound(isPreview?(ticks[0]===10?'ten-double':'single'):(ticks[0]===30||ticks[0]===10)?'slow-double':'single');
     }
   }
   lastPhase=session?phase:null;
@@ -353,11 +360,19 @@ function startPause(){
   save();draw({notify:false});
 }
 function reset(){stopActiveAudio();session=null;lastPhase=null;config=readConfig();save();releaseScreenOn();draw({notify:false});}
-el.start.addEventListener('click',startPause);
-el.reset.addEventListener('click',reset);
+function buttonSound(){
+ if(!isPreview||document.hidden||audioInterruption.interrupted)return;
+ if(audioMode==='html'&&htmlSounds){
+   sessionMix.begin();
+   htmlSounds.playButton();
+ } else sound('button');
+}
+el.start.addEventListener('click',()=>{startPause();buttonSound();});
+el.reset.addEventListener('click',()=>{reset();buttonSound();});
 el.form.addEventListener('change',()=>{if(!session){config=readConfig();draw({notify:false});}});
 el.settings.addEventListener('toggle',()=>{document.body.classList.toggle('settings-visible',el.settings.open);lastClockLayout='';requestAnimationFrame(()=>fitClock(true));});
-el.closeSettings.addEventListener('click',()=>{el.settings.open=false;lastClockLayout='';requestAnimationFrame(()=>fitClock(true));});
+el.closeSettings.addEventListener('click',()=>{el.settings.open=false;lastClockLayout='';requestAnimationFrame(()=>fitClock(true));buttonSound();});
+el.settings.querySelector?.('summary')?.addEventListener('click',buttonSound);
 document.addEventListener('keydown',event=>{if(event.key==='Escape'&&el.settings.open)el.settings.open=false;});
 el.form.addEventListener('submit',event=>event.preventDefault());
 document.addEventListener('visibilitychange',()=>{

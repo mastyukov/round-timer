@@ -66,7 +66,7 @@ function setup({online=true,blocked=false,partialFailure=null,priorCaches={}}={}
 test('initial complete shell install then fully offline cached startup, HTML, sound and script',async()=>{
  const s=setup();
  await s.trigger('install');
- assert.equal(s.store.has('round-timer-shell-v0.8.6-retire-rc10'),true);
+ assert.equal(s.store.has('round-timer-shell-v0.8.7-studio-rc11'),true);
  s.setOnline(false);
  const startFetches=s.fetches.length;
  for(const asset of ['./','./index.html','./app.mjs','./audio-guard.mjs','./sounds/gong-start.mp3']){
@@ -98,7 +98,7 @@ test('cache upgrade keeps complete new version and removes old version only afte
  assert.equal(s.store.has(old),true);
  await s.trigger('activate');
  assert.equal(s.store.has(old),false);
- assert.equal(s.store.has('round-timer-shell-v0.8.6-retire-rc10'),true);
+ assert.equal(s.store.has('round-timer-shell-v0.8.7-studio-rc11'),true);
  const r=await s.trigger('fetch',s.request('./index.html'));
  assert.match(await r.text(),/asset:/);
 });

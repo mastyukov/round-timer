@@ -4,7 +4,7 @@ import {normalizeConfig,totalDurationMs,computePhase,formatTime,crossedCountdown
 
 test('sane defaults and duration', () => {
   const c=normalizeConfig();
-  assert.deepEqual(c,{work:120,rest:30,rounds:3,prepare:5});
+  assert.deepEqual(c,{work:120,rest:0,rounds:3,prepare:5});
   assert.equal(totalDurationMs(c),425000);
 });
 test('prepare, work, rest, finish boundaries', () => {
