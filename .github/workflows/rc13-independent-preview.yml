@@ -1,0 +1,50 @@
+name: APP-001 RC13 — independent TEST artifact regression (no deployment)
+on:
+  push:
+    branches:
+      - qa/round-timer-sound-recovery-rc13-20261112
+    paths:
+      - '.github/workflows/rc13-independent-preview.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Clone isolated TEST candidate at immutable audited SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --quiet https://github.com/mastyukov-cyber/round-timer-pages-test.git preview
+          cd preview
+          git checkout --detach 'b285a052db811da31938a3ac4282e787afdbee5e'
+          test "$(git rev-parse HEAD)" = 'b285a052db811da31938a3ac4282e787afdbee5e'
+      - name: Validate TEST-only release identity, original studio audio and syntax
+        working-directory: preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          node -e "const b=require('./preview-build.json');if(b.production!==false||b.version!=='v0.8.9-recovery-rc13'||b.source_pr!==20||b.source_commit!=='bab1056adbbe2f533eb724a839d0159498cfafbf')process.exit(1)"
+          for f in app.mjs engine.mjs html-audio.mjs sw.js audio-guard.mjs web-audio-retire.mjs audio-duck.mjs diagnostics/sender.mjs diagnostics/schema.mjs; do node --check "$f"; done
+          node --test tests/*.test.mjs
+      - name: Confirm all five exact MP3 SHA-256 and original approved sounds
+        working-directory: preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module - <<'JS'
+          import {readFileSync} from 'node:fs';
+          import {createHash} from 'node:crypto';
+          const m=JSON.parse(readFileSync('studio-audio-manifest.json','utf8'));
+          if(m.files.length!==5)throw Error('expected exactly five studio sounds');
+          for(const f of m.files){
+            if(!['button.mp3','studio-gong-start.mp3','studio-gong-end.mp3','woodclack-single.mp3','woodclack-double.mp3'].includes(f.name))throw Error('unapproved file '+f.name);
+            const bytes=readFileSync('sounds/'+f.name);
+            if(bytes.length!==f.bytes||createHash('sha256').update(bytes).digest('hex')!==f.sha256)throw Error('sound mismatch '+f.name);
+            console.log('PASS studio SHA-256',f.name);
+          }
+          const config=JSON.parse(readFileSync('preview-build.json'));
+          if(config.production!==false)throw Error('not a preview');
+          JS

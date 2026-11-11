@@ -2,8 +2,11 @@
 * { box-sizing:border-box; }
 html,body { margin:0; height:100%; width:100%; overflow:hidden; }
 body { background:var(--background); color:#f6fff8; overscroll-behavior:none; -webkit-tap-highlight-color:transparent; }
-body.phase-work { --accent:#68f59a; --background:#08190e; }
-body.phase-rest { --accent:#ff7575; --background:#260c0f; }
+/* Fixed hit-test overlay: the former settings box-shadow was not clickable. */
+.settings-backdrop {display:none;position:fixed;inset:0;z-index:90;background:#07101999;pointer-events:auto;touch-action:none;}
+body.settings-visible .settings-backdrop {display:block;}
+body.phase-work { --accent:#a7ff55; --background:#11220c; }
+body.phase-rest { --accent:#ff4255; --background:#2b0a10; }
 body.phase-prepare { --accent:#ffd666; --background:#25200b; }
 body.phase-done { --accent:#9cbcff; --background:#10192d; }
 body.phase-idle { --accent:#e1edf9; --background:#0b1218; }
@@ -23,6 +26,7 @@ main { flex:1;min-height:0;display:flex;flex-direction:column; gap:clamp(8px,1.3
 .controls {display:flex;width:100%;gap:10px;min-height:58px;}
 .main-button,.secondary-button {height:58px;min-height:58px;min-width:0;border-radius:16px;font-size:clamp(1rem,4vw,1.3rem);font-weight:900;}
 .main-button {flex:1;background:var(--accent);border:0;color:#091411;}
+.main-button:active,.secondary-button:active,.close-settings:active {filter:brightness(1.13);transform:scale(.985);}
 .secondary-button {flex:1;border:1px solid #ffffff4a;background:#ffffff14;color:white;}
 .settings {width:100%;height:58px;min-height:58px;flex:none;border:1px solid #ffffff4a;background:#ffffff12;border-radius:16px;}
 .settings summary { height:100%;min-height:0;display:flex;align-items:center;justify-content:center;gap:8px;list-style:none;cursor:pointer;padding:6px 12px;font-size:clamp(1rem,3.65vw,1.2rem);font-weight:850;line-height:1.1;white-space:nowrap;}
@@ -70,3 +74,13 @@ main { flex:1;min-height:0;display:flex;flex-direction:column; gap:clamp(8px,1.3
   .settings {height:48px;min-height:48px;}
 }
 @media (prefers-reduced-motion:reduce) {.progress-fill{transition:none;} }
+
+/* RC12 preview style scale; original production stylesheet is untouched. */
+@media (orientation:portrait) {
+  .clock {transform:scale(1.26,4.10);}
+  .round-line {transform:scaleY(1.17);}
+  .phase-line {transform:scaleY(1.17);}
+}
+@media (orientation:landscape) {
+  .clock {transform:scale(1.62,1.62);}
+}
