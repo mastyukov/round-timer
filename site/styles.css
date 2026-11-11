@@ -2,6 +2,9 @@
 * { box-sizing:border-box; }
 html,body { margin:0; height:100%; width:100%; overflow:hidden; }
 body { background:var(--background); color:#f6fff8; overscroll-behavior:none; -webkit-tap-highlight-color:transparent; }
+/* Fixed hit-test overlay: the former settings box-shadow was not clickable. */
+.settings-backdrop {display:none;position:fixed;inset:0;z-index:90;background:#07101999;pointer-events:auto;touch-action:none;}
+body.settings-visible .settings-backdrop {display:block;}
 body.phase-work { --accent:#a7ff55; --background:#11220c; }
 body.phase-rest { --accent:#ff4255; --background:#2b0a10; }
 body.phase-prepare { --accent:#ffd666; --background:#25200b; }

@@ -3,7 +3,7 @@ import {createDelayedStartGuard,createActiveSoundController,createAudioInterrupt
 import {createHtmlAudioController} from './html-audio.mjs';
 import {createWebAudioRetirement} from './web-audio-retire.mjs';
 import {createAudioDucking} from './audio-duck.mjs';
-const DIAGNOSTICS_VERSION='0.8.8';
+const DIAGNOSTICS_VERSION='0.8.9';
 const diagnosticSender=createDiagnosticSender({
   endpoint:productionDiagnosticEndpoint(globalThis.location,'https://round-timer-error-receiver.mastyukov.workers.dev/v1/error')
 });
@@ -12,11 +12,10 @@ attachBrowserErrorCapture({target:window,sender:diagnosticSender,version:DIAGNOS
 import {normalizeConfig,computePhase,formatTime,WORK_CHOICES,REST_CHOICES,ROUND_CHOICES,PREPARE_CHOICES,crossedCountdown} from './engine.mjs';
 const STORAGE_KEY='timer-active-session-v1';
 // RC6 preview resets earlier transport and speculative 50% options.
-const PREVIEW_AUDIO_KEY='round-timer-preview-transport-v2';
+// RC13 TEST: reset previously saved audio mode to reliable HTML default.
+const PREVIEW_AUDIO_KEY='round-timer-preview-transport-rc13-v1';
 const PREVIEW_MUSIC_KEY='round-timer-preview-music-mix-v1';
-// RC12 experiment: user observed ~1s late iPhone HTML cues. Advance foreground
-// work cues conservatively; physical Bluetooth latency is not guaranteed.
-const HTML_WORK_CUE_LEAD_MS=700;
+// RC13: restore exact countdown boundaries; no speculative 700ms lead.
 const isPreview=globalThis.location?.origin==='https://mastyukov-cyber.github.io' &&
   globalThis.location?.pathname?.startsWith('/round-timer-pages-test/');
 let audioMode='web';
@@ -168,10 +167,10 @@ function sound(type){
    catch(_){void diagnosticSender.report({event:'audio_failure',code:'AUDIO_PLAY_REJECTED',component:'audio',version:DIAGNOSTICS_VERSION});}
  }
 }
-function stopActiveAudio({fadeMs=16}={}){
+function stopActiveAudio({fadeMs=16,preserveButton=false}={}){
  delayedStartGong.invalidate();
  activeSounds.stopAll({fadeMs});
- htmlSounds?.stopAll();
+ htmlSounds?.stopAll({includeButton:!preserveButton});
  sessionMix.stop();
 }
 const audioInterruption=createAudioInterruptionGuard({
@@ -309,7 +308,7 @@ if('ResizeObserver' in window)new ResizeObserver(()=>fitClock()).observe(el.cloc
 function draw({notify=true}={}) {
   const phase=session?phaseNow():computePhase({...config,prepare:0},0);
   const type=session?phase.type:'idle';
-  document.body.className=`phase-${type}`;
+  document.body.className=`phase-${type}${el.settings.open?' settings-visible':''}`;
   el.round.textContent=`РАУНД ${phase.round} / ${phase.rounds==='infinity'?'∞':phase.rounds}`;
   el.clock.textContent=formatTime(phase.remainingMs);
   fitClock();
@@ -319,6 +318,8 @@ function draw({notify=true}={}) {
   el.progress.style.width=type==='done'?'100%':`${Math.max(0,Math.min(100,100*(1-phase.remainingMs/duration)))}%`;
   const action=!session?'▶ СТАРТ':type==='done'?'↻ ЗАНОВО':session.status==='running'?'Ⅱ ПАУЗА':'▶ ПРОДОЛЖИТЬ';
   el.start.textContent=action;
+  el.start.disabled=!!el.settings.open;
+  el.reset.disabled=!!el.settings.open;
   const locked=!!session&&type!=='done';
   for(const input of [el.work,el.rest,el.rounds,el.prepare])input.disabled=locked;
   // Unlike workout duration fields, audio QA settings stay selectable.
@@ -335,13 +336,14 @@ function draw({notify=true}={}) {
       else if(phase.type==='done')sound('end');
     } else {
       // Skip catch-up bursts on delayed ticks (e.g., the tab was briefly throttled).
-      const ticks=crossedCountdown(lastPhase,phase,isPreview&&audioMode==='html'&&phase.type==='work'?HTML_WORK_CUE_LEAD_MS:0);
+      const ticks=crossedCountdown(lastPhase,phase);
       if(ticks.length===1)sound(isPreview?(ticks[0]===10?'ten-double':'single'):(ticks[0]===30||ticks[0]===10)?'slow-double':'single');
     }
   }
   lastPhase=session?phase:null;
 }
 function startPause(){
+  if(el.settings.open)return false;
   let startupCuePlayed=false;
   // Every button action invalidates delayed initial gong requests.
   delayedStartGong.invalidate();
@@ -359,26 +361,54 @@ function startPause(){
     startupCuePlayed=config.prepare<=5;
     ensureScreenOn();
   } else if(session.status==='running'){
-    stopActiveAudio();
+    stopActiveAudio({preserveButton:isPreview});
     session.elapsedBeforeMs=elapsedNow();session.resumedAt=0;session.status='paused';releaseScreenOn();
   } else {unlockAudio();session.status='running';session.resumedAt=Date.now();ensureScreenOn();}
   save();draw({notify:false});
   return startupCuePlayed;
 }
-function reset(){stopActiveAudio();session=null;lastPhase=null;config=readConfig();save();releaseScreenOn();draw({notify:false});}
+function reset(){if(el.settings.open)return;stopActiveAudio({preserveButton:isPreview});session=null;lastPhase=null;config=readConfig();save();releaseScreenOn();draw({notify:false});}
 function buttonSound(){
- if(!isPreview||document.hidden||audioInterruption.interrupted)return;
+ if(!isPreview||document.hidden||audioInterruption.interrupted)return false;
  if(audioMode==='html'&&htmlSounds){
    sessionMix.begin();
-   htmlSounds.playButton();
- } else sound('button');
+   return htmlSounds.playButton();
+ }
+ sound('button');
+ return true;
 }
-el.start.addEventListener('click',()=>{if(!startPause())buttonSound();});
-el.reset.addEventListener('click',()=>{reset();buttonSound();});
+// Pointerdown plays the button sound in the direct iOS user gesture.
+// The later click performs the operation and does not play a duplicate.
+function bindFastPress(target,action,{allowed=()=>true,suppress=()=>false}={}){
+ let pressed=false;
+ target?.addEventListener('pointerdown',event=>{
+   if(event.isPrimary===false||!allowed()||suppress())return;
+   pressed=buttonSound();
+ });
+ target?.addEventListener('pointercancel',()=>{pressed=false;});
+ target?.addEventListener('click',()=>{
+   const played=pressed;pressed=false;
+   if(!allowed())return;
+   const skip=suppress();
+   action?.();
+   if(!skip&&!played)buttonSound();
+ });
+}
+function willStartCue(){
+ const phase=session&&phaseNow();
+ return (!session||phase?.type==='done')&&readConfig().prepare<=5;
+}
+bindFastPress(el.start,()=>startPause(),{allowed:()=>!el.settings.open,suppress:willStartCue});
+bindFastPress(el.reset,()=>reset(),{allowed:()=>!el.settings.open});
 el.form.addEventListener('change',()=>{if(!session){config=readConfig();draw({notify:false});}});
-el.settings.addEventListener('toggle',()=>{document.body.classList.toggle('settings-visible',el.settings.open);lastClockLayout='';requestAnimationFrame(()=>fitClock(true));});
-el.closeSettings.addEventListener('click',()=>{el.settings.open=false;lastClockLayout='';requestAnimationFrame(()=>fitClock(true));buttonSound();});
-el.settings.querySelector?.('summary')?.addEventListener('click',buttonSound);
+el.settings.addEventListener('toggle',()=>{
+ document.body.classList.toggle('settings-visible',el.settings.open);
+ el.start.disabled=!!el.settings.open;
+ el.reset.disabled=!!el.settings.open;
+ lastClockLayout='';requestAnimationFrame(()=>fitClock(true));
+});
+bindFastPress(el.closeSettings,()=>{el.settings.open=false;lastClockLayout='';requestAnimationFrame(()=>fitClock(true));});
+bindFastPress(el.settings.querySelector?.('summary'),()=>{});
 document.addEventListener('keydown',event=>{if(event.key==='Escape'&&el.settings.open)el.settings.open=false;});
 el.form.addEventListener('submit',event=>event.preventDefault());
 document.addEventListener('visibilitychange',()=>{
