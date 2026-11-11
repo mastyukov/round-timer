@@ -7,7 +7,7 @@ export function normalizeConfig(c={}) {
   const choice=(value,allowed,fallback)=>allowed.includes(Number(value))?Number(value):fallback;
   return {
     work:choice(c.work,WORK_CHOICES,120),
-    rest:choice(c.rest,REST_CHOICES,30),
+    rest:choice(c.rest,REST_CHOICES,0),
     rounds:c.rounds==='infinity'||c.rounds===Infinity?'infinity':choice(c.rounds,ROUND_CHOICES.slice(0,-1),3),
     prepare:choice(c.prepare,PREPARE_CHOICES,5)
   };
@@ -43,9 +43,14 @@ export function formatTime(ms) {
   return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
 }
 /** Count down ticks: double notices at 30 and 10, then single notices at seconds 5 through 1. */
-export function crossedCountdown(prev,now) {
+export function crossedCountdown(prev,now,leadMs=0) {
   if(!prev||!now||prev.key!==now.key||prev.type!==now.type) return [];
   if(!['prepare','work','rest'].includes(now.type)) return [];
-  const thresholds=[30,10,5,4,3,2,1];
-  return thresholds.filter(sec=>sec*1000<now.durationMs && prev.remainingMs>sec*1000 && now.remainingMs<=sec*1000);
+  const thresholds=[...(now.type==='work'&&now.durationMs>60000?[60]:[]),30,10,5,4,3,2,1];
+  // Preview cue anticipation; zero is identical to the approved engine.
+  const lead=Math.max(0,Math.min(900,Math.round(Number(leadMs)||0)));
+  return thresholds.filter(sec=>{
+    const at=sec*1000+lead;
+    return sec*1000<now.durationMs && prev.remainingMs>at && now.remainingMs<=at;
+  });
 }
