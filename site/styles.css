@@ -2,8 +2,8 @@
 * { box-sizing:border-box; }
 html,body { margin:0; height:100%; width:100%; overflow:hidden; }
 body { background:var(--background); color:#f6fff8; overscroll-behavior:none; -webkit-tap-highlight-color:transparent; }
-body.phase-work { --accent:#68f59a; --background:#08190e; }
-body.phase-rest { --accent:#ff7575; --background:#260c0f; }
+body.phase-work { --accent:#a7ff55; --background:#11220c; }
+body.phase-rest { --accent:#ff4255; --background:#2b0a10; }
 body.phase-prepare { --accent:#ffd666; --background:#25200b; }
 body.phase-done { --accent:#9cbcff; --background:#10192d; }
 body.phase-idle { --accent:#e1edf9; --background:#0b1218; }
