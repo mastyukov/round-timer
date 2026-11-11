@@ -8,10 +8,8 @@ const bytes=p=>readFileSync(new URL('../site/'+p, import.meta.url));
 const txt=p=>bytes(p).toString('utf8');
 const sha=p=>createHash('sha256').update(bytes(p)).digest('hex');
 
-test('Approved timer engine, CSS, icons and sounds are byte-identical',()=>{
+test('Approved original audio and icons remain byte-identical while RC11 updates engine and CSS',()=>{
   const unchanged={
-    'engine.mjs':'1f99d689ad8894bc89ab591b4447e1336dc2b5faf97781ad4e40abd0058416c8',
-    'styles.css':'5ac2df0416beab144424a91d638266acf800b2ea5808076b91374799f3009a0a',
     'sounds/gong-start.mp3':'b440d5440f2d104d15ac3e0553366e7bf0db13014599d14e5e8b94b3744a4333',
     'sounds/gong-end.mp3':'13c66a498dfae6921fe77343550f29b06c4470e04e5c7373629f0639096e43d7',
     'sounds/woodclack.mp3':'7bbc5e40111dbb7d61d50a7984cccc25bdc55c37ab1c056d5b18c6ae7147aa71',
