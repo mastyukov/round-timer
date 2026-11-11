@@ -3,13 +3,13 @@ import assert from 'node:assert/strict';
 
 // Simulates the installed preview PWA, including a previously selected Web
 // Audio transport, while keeping the real app's event handlers and logic.
-test('installed RC9 lets user switch Web to HTML during countdown without losing time',async()=>{
+test('RC13 supports explicit Web to HTML switch on the fresh preview preference key',async()=>{
  const names=['window','document','navigator','location','localStorage','fetch','getComputedStyle',
               'requestAnimationFrame','setInterval','ResizeObserver'];
  const backup=new Map(names.map(k=>[k,Object.getOwnPropertyDescriptor(globalThis,k)]));
  const oldNow=Date.now;
  let time=1800000000000,heartbeat=null;
- const handlers=new Map(),store=new Map([['round-timer-preview-transport-v2','web']]);
+ const handlers=new Map(),store=new Map([['round-timer-preview-transport-rc13-v1','web']]);
  class Element {
    constructor(name){
      this.name=name;this.id=name;this.value='';this.disabled=false;this.open=false;
@@ -88,7 +88,7 @@ test('installed RC9 lets user switch Web to HTML during countdown without losing
    assert.equal(nodes.workInput.disabled,true,'training duration is protected while running');
    const before=nodes.clock.textContent;
    mode.value='html';mode.fire('change');
-   assert.equal(store.get('round-timer-preview-transport-v2'),'html');
+   assert.equal(store.get('round-timer-preview-transport-rc13-v1'),'html');
    assert.equal(nodes.startPauseButton.textContent,'▶ ПРОДОЛЖИТЬ','engine change auto-pauses');
    assert.equal(nodes.settings.open,true,'settings remain visible after switching');
    assert.equal(mode.disabled,false,'audio selector available while paused');
@@ -96,10 +96,10 @@ test('installed RC9 lets user switch Web to HTML during countdown without losing
    time+=5000;heartbeat();
    assert.equal(nodes.clock.textContent,before,'elapsed time stops while paused');
    mode.value='web';mode.fire('change');
-   assert.equal(store.get('round-timer-preview-transport-v2'),'web');
+   assert.equal(store.get('round-timer-preview-transport-rc13-v1'),'web');
    assert.equal(mix.disabled,true);
    mode.value='html';mode.fire('change');
-   assert.equal(store.get('round-timer-preview-transport-v2'),'html');
+   assert.equal(store.get('round-timer-preview-transport-rc13-v1'),'html');
    nodes.startPauseButton.fire('click');
    assert.equal(nodes.startPauseButton.textContent,'Ⅱ ПАУЗА');
    time+=1000;heartbeat();
