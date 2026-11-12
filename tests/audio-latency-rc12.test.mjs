@@ -45,7 +45,7 @@ test('RC13 layout retains approved RC12 orientation and original five studio rec
  assert(app.includes('isPreview?1.62:1.587'));
  assert(css.includes('transform:scale(1.26,4.10)'));
  assert(css.includes('transform:scale(1.62,1.62)'));
- assert(sw.includes('round-timer-shell-v0.8.9-recovery-rc13'));
+ assert(sw.includes('round-timer-shell-v0.8.10-mix-rc14'));
  for(const n of ['studio-gong-start','studio-gong-end','woodclack-single','woodclack-double','button'])
   assert(sw.includes("'./sounds/"+n+".mp3'"));
 });
