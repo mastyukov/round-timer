@@ -40,11 +40,11 @@ test('RC13 START keeps training cue priority and pointerdown first for button cl
 });
 test('RC13 layout retains approved RC12 orientation and original five studio recordings',()=>{
  const app=source('app.mjs'),css=source('styles.css'),sw=source('sw.js');
- assert(app.includes('isPreview?1.26:1.2'));
- assert(app.includes('isPreview?4.10:4.3164'));
- assert(app.includes('isPreview?1.62:1.587'));
- assert(css.includes('transform:scale(1.26,4.10)'));
- assert(css.includes('transform:scale(1.62,1.62)'));
+ assert(app.includes('isPreview?1.30:1.2'));
+ assert(app.includes('isPreview?4.17:4.3164'));
+ assert(app.includes('isPreview?1.67:1.587'));
+ assert(css.includes('transform:scale(1.30,4.17)'));
+ assert(css.includes('transform:scale(1.67,1.67)'));
  assert(sw.includes('round-timer-shell-v0.8.10-mix-rc14'));
  for(const n of ['studio-gong-start','studio-gong-end','woodclack-single','woodclack-double','button'])
   assert(sw.includes("'./sounds/"+n+".mp3'"));

@@ -287,9 +287,9 @@ function fitClock(force=false){
  const st=getComputedStyle(el.clock);
  ctx.font=`900 100px ${st.fontFamily}`;
  const raw=ctx.measureText('88:88').width-100*.055*4;
- const scaleX=portrait?(isPreview?1.26:1.2):(isPreview?1.62:1.587),scaleY=portrait?(isPreview?4.10:4.3164):(isPreview?1.62:1.587);
- const byWidth=(frame.clientWidth*(isPreview?.995:.98))/(raw/100)/scaleX;
- const byHeight=(frame.clientHeight*(isPreview?.975:.95))/scaleY;
+ const scaleX=portrait?(isPreview?1.30:1.2):(isPreview?1.67:1.587),scaleY=portrait?(isPreview?4.17:4.3164):(isPreview?1.67:1.587);
+ const byWidth=(frame.clientWidth*(isPreview?1.015:.98))/(raw/100)/scaleX;
+ const byHeight=(frame.clientHeight*(isPreview?.985:.95))/scaleY;
  const size=Math.max(15,Math.min(byWidth,byHeight,620));
  el.clock.style.fontSize=`${size}px`;
  fitLabels();
@@ -299,7 +299,7 @@ function fitLabels(){
  const ctx=(fitClock.labelCanvas||(fitClock.labelCanvas=document.createElement('canvas'))).getContext('2d');
  for(const label of [el.round,el.phase]){
   const st=getComputedStyle(label),root=parseFloat(getComputedStyle(document.documentElement).fontSize)||16;
-  const ideal=label===el.round?(portrait?window.innerWidth*(isPreview?.094:.09):window.innerHeight*(isPreview?.075:.07)):(portrait?window.innerWidth*(isPreview?.077:.073):window.innerHeight*(isPreview?.054:.05));
+  const ideal=label===el.round?(portrait?window.innerWidth*(isPreview?.101:.09):window.innerHeight*(isPreview?.082:.07)):(portrait?window.innerWidth*(isPreview?.077:.073):window.innerHeight*(isPreview?.054:.05));
   let size=Math.max(root*.82,Math.min(ideal,root*4.6));
   ctx.font=`900 ${size}px ${st.fontFamily}`;
   const expected=label.textContent||'РАУНД 12 / ∞';

@@ -12,7 +12,8 @@ test('RC13 countdown 60,30,10,5,4,3,2,1 is requested at exact thresholds, no 700
   assert.deepEqual(crossedCountdown(state(sec*1000+750),state(sec*1000+650)),[]);
  }
  assert.deepEqual(crossedCountdown(state(60000, 'work',60000),state(59900,'work',60000)),[]);
- assert.equal(normalizeConfig({work:60}).rest,0);
+ assert.equal(normalizeConfig({work:60}).rest,30);
+ assert.equal(normalizeConfig({work:60}).prepare,0);
  assert.equal(computePhase({work:60,rest:0,rounds:3,prepare:0},60000).key,'work-2');
 });
 test('RC13 restores original HTML cue playback sequence, even after a gong',()=>{

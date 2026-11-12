@@ -6,8 +6,11 @@ const file=p=>readFileSync(new URL('../site/'+p,import.meta.url),'utf8');
 const state=(remaining,duration=120000,type='work')=>({
  type,key:type+'-1',durationMs:duration,remainingMs:remaining
 });
-test('RC11 defaults to zero seconds rest but respects explicit values',()=>{
- assert.equal(normalizeConfig({work:60}).rest,0);
+test('RC14 defaults to 30 seconds rest and zero preparation but respects explicit values',()=>{
+ assert.equal(normalizeConfig({work:60}).rest,30);
+ assert.equal(normalizeConfig({work:60}).prepare,0);
+ assert.equal(normalizeConfig({work:60,rest:0,prepare:5}).rest,0);
+ assert.equal(normalizeConfig({work:60,rest:0,prepare:5}).prepare,5);
  assert.equal(normalizeConfig({work:120,rest:30}).rest,30);
  assert.equal(computePhase({work:60,rounds:3,rest:0,prepare:0},60000).key,'work-2');
 });

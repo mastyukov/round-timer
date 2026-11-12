@@ -7,9 +7,9 @@ export function normalizeConfig(c={}) {
   const choice=(value,allowed,fallback)=>allowed.includes(Number(value))?Number(value):fallback;
   return {
     work:choice(c.work,WORK_CHOICES,120),
-    rest:choice(c.rest,REST_CHOICES,0),
+    rest:choice(c.rest,REST_CHOICES,30),
     rounds:c.rounds==='infinity'||c.rounds===Infinity?'infinity':choice(c.rounds,ROUND_CHOICES.slice(0,-1),3),
-    prepare:choice(c.prepare,PREPARE_CHOICES,5)
+    prepare:choice(c.prepare,PREPARE_CHOICES,0)
   };
 }
 export function totalDurationMs(c) {

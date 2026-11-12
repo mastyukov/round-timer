@@ -55,6 +55,11 @@ test('synthetic DOM model: start / pause / resume / reset and stale gong',async(
    set('ResizeObserver',undefined);
    await import('../site/app.mjs?browser-model-1');
    assert.equal(nodes.clock.textContent,'01:00');
+   // Verify the new defaults, then deliberately select preparation 5s
+   // for the existing pause/resume regression scenario.
+   assert.equal(nodes.prepareInput.value,0);
+   assert.equal(nodes.restInput.value,30);
+   nodes.prepareInput.value='5';nodes.settingsForm.fire('change');
    nodes.startPauseButton.fire('click');
    assert.equal(nodes.phaseLabel.textContent,'ПОДГОТОВКА');
    current+=2000;heartbeat();assert.equal(nodes.clock.textContent,'00:03');
