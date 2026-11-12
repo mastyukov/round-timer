@@ -1,0 +1,33 @@
+{
+  "status": "VERIFIED_SHA256",
+  "origin": "Four user-recorded M4A, processed to studio MP3; single hit split from user's double knocks",
+  "files": [
+    {
+      "name": "button.mp3",
+      "bytes": 12332,
+      "sha256": "7568fbddf7d7e7af867a8f3d61cc1a39aa10b23239f71b691defd1514780e17e"
+    },
+    {
+      "name": "studio-gong-end.mp3",
+      "bytes": 66092,
+      "sha256": "5a11b07fa9056952b8aeb74996806ca707b5cc69dedac4d088a081fc64ecb55a"
+    },
+    {
+      "name": "studio-gong-start.mp3",
+      "bytes": 63020,
+      "sha256": "bc6e72b76bacdc54dd0bf0dcbc636ddaa9ec91d123b88e0f03c4e954038e9505"
+    },
+    {
+      "name": "woodclack-double.mp3",
+      "bytes": 27692,
+      "sha256": "9801847a45300f972cf5d381e20bbbdf54f743c0bfd80293b38b2b0bd3439a28"
+    },
+    {
+      "name": "woodclack-single.mp3",
+      "bytes": 12332,
+      "sha256": "9b1287db452b68cfede024748dd8d5ed5755e61950509354b4e197e9193d2918"
+    }
+  ],
+  "release": "v0.8.15",
+  "accepted_test_source": "mastyukov-cyber/round-timer-pages-test@021a17337f339e0a1b98f5cc90862a741aa01ad0"
+}

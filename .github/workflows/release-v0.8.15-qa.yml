@@ -1,0 +1,33 @@
+name: APP-001 v0.8.15 — release verification (never deploy)
+on:
+  push:
+    branches: [release/round-timer-v0.8.15-rc19-20261112]
+  pull_request:
+    branches: [main]
+    paths: [site/**, tests/**, diagnostics/**, project/releases/**, .github/workflows/**]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Syntax and release identity
+        run: |
+          set -euo pipefail
+          for f in site/app.mjs site/engine.mjs site/sw.js site/diagnostics/sender.mjs site/audio-guard.mjs site/audio-duck.mjs site/html-audio.mjs site/web-audio-retire.mjs; do node --check "$f"; done
+          grep -Fq 'round-timer-shell-v0.8.15' site/sw.js
+          grep -Fq 'const isPreview=true;' site/app.mjs
+          test ! -d site/tests
+          test ! -d site/receiver
+          test ! -d site/project
+      - name: Release JS contracts and regression
+        run: node --test tests/*.test.mjs
+      - name: Python diagnostics/monitor regression
+        run: python3 -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Confirm five approved audio assets and legacy MP3
+        run: |
+          for f in studio-gong-start studio-gong-end woodclack-single woodclack-double button gong-start gong-end woodclack; do test -s "site/sounds/$f.mp3"; done

@@ -4,6 +4,7 @@ on:
     branches:
       - setup/fast-lane-v1.3
       - main
+      - release/round-timer-v0.8.15-rc19-20261112
       - setup/diagnostic-monitor-3d
       - 'assistant/round-timer/**'
     paths:
@@ -28,7 +29,16 @@ jobs:
           test -s site/sounds/woodclack.mp3
           node --check site/app.mjs
           node --check site/engine.mjs
+          node --check site/audio-guard.mjs
+          node --check site/html-audio.mjs
+          node --check site/audio-duck.mjs
+          node --check site/web-audio-retire.mjs
           node --check site/sw.js
+          test -s site/sounds/studio-gong-start.mp3
+          test -s site/sounds/studio-gong-end.mp3
+          test -s site/sounds/woodclack-single.mp3
+          test -s site/sounds/woodclack-double.mp3
+          test -s site/sounds/button.mp3
           node --check diagnostics/schema.mjs
           node --check site/diagnostics/schema.mjs
           node --check site/diagnostics/sender.mjs
@@ -44,6 +54,6 @@ jobs:
           m = json.loads(Path('site/manifest.webmanifest').read_text())
           assert m['display'] == 'standalone'
           assert m['start_url'] == './'
-          assert 'round-timer-shell-v0.8.5' in Path('site/sw.js').read_text()
+          assert 'round-timer-shell-v0.8.15' in Path('site/sw.js').read_text()
           print('PWA baseline checks: PASS')
           PY
