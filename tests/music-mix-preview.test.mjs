@@ -29,7 +29,7 @@ test('transient session requests isolated to test HTML Audio; Web Audio unaffect
 });
 test('offline cache includes both transports and all original audible cues',()=>{
  const sw=src('sw.js');
- assert(sw.includes('round-timer-shell-v0.8.9-recovery-rc13'));
+ assert(sw.includes('round-timer-shell-v0.8.10-mix-rc14'));
  for(const name of ['audio-duck.mjs','audio-guard.mjs','html-audio.mjs','app.mjs','sounds/gong-start.mp3','sounds/gong-end.mp3','sounds/woodclack.mp3']){
    assert(sw.includes("'./"+name+"'"),name);
  }
@@ -38,9 +38,10 @@ test('offline cache includes both transports and all original audible cues',()=>
 test('RC7 HTML Audio holds music session, avoids a per-cue reset',()=>{
  const app=src('app.mjs');
  const mode=src('audio-duck.mjs');
- assert(app.includes('sessionMix.begin(); // Hold until PAUSE/RESET/HOME'));
+ assert(app.includes('sessionMix.begin(); // Retain iOS mix through foreground PAUSE/RESET'));
  assert(!app.includes('sessionMix.cue('));
- assert(app.includes('sessionMix.stop()'));
+ assert(app.includes('preserveMix:keepForegroundMix()'));
+ assert(app.includes('if(!preserveMix)sessionMix.stop()'));
  assert(mode.includes('function begin()'));
  assert(mode.includes('return Object.freeze({supported,begin,cue,stop})'));
  assert(!app.includes('цель ≈50%'));

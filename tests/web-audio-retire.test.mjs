@@ -57,7 +57,7 @@ test('RC10 background handler destroys old WebAudio and forbids audio catchup',a
 test('RC10 caches new lifecycle controller offline and does not modify cue assets',async()=>{
  const {readFileSync}=await import('node:fs');
  const sw=readFileSync(new URL('../site/sw.js',import.meta.url),'utf8');
- assert(sw.includes("round-timer-shell-v0.8.9-recovery-rc13"));
+ assert(sw.includes("round-timer-shell-v0.8.10-mix-rc14"));
  assert(sw.includes("'./web-audio-retire.mjs'"));
  for(const p of ['sounds/gong-start.mp3','sounds/gong-end.mp3','sounds/woodclack.mp3'])assert(sw.includes("'./"+p+"'"));
 });

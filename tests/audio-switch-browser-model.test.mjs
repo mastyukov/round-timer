@@ -10,6 +10,9 @@ test('RC13 supports explicit Web to HTML switch on the fresh preview preference 
  const oldNow=Date.now;
  let time=1800000000000,heartbeat=null;
  const handlers=new Map(),store=new Map([['round-timer-preview-transport-rc13-v1','web']]);
+ const musicTransitions=[];
+ const audioSession={_type:'auto',get type(){return this._type;},
+   set type(value){this._type=value;musicTransitions.push(value);}};
  class Element {
    constructor(name){
      this.name=name;this.id=name;this.value='';this.disabled=false;this.open=false;
@@ -64,7 +67,7 @@ test('RC13 supports explicit Web to HTML switch on the fresh preview preference 
    Date.now=()=>time;
    set('window',win);set('document',doc);
    set('location',{origin:'https://mastyukov-cyber.github.io',pathname:'/round-timer-pages-test/'});
-   set('navigator',{audioSession:{type:'auto'},serviceWorker:undefined});
+   set('navigator',{audioSession,serviceWorker:undefined});
    set('localStorage',{getItem:k=>store.get(k)??null,setItem:(k,v)=>store.set(k,v),
      removeItem:k=>store.delete(k)});
    set('fetch',()=>new Promise(()=>{}));
@@ -110,8 +113,17 @@ test('RC13 supports explicit Web to HTML switch on the fresh preview preference 
    assert.equal(nodes.startPauseButton.textContent,'Ⅱ ПАУЗА');
    time+=1000;heartbeat();
    assert.notEqual(nodes.clock.textContent,before,'countdown resumes correctly');
+   assert.equal(audioSession.type,'transient','music mix must be engaged before reset');
+   const musicCategoryChanges=musicTransitions.length;
    nodes.resetButton.fire('click');
    assert.equal(nodes.startPauseButton.textContent,'▶ СТАРТ');
+   assert.equal(audioSession.type,'transient','reset must keep iOS music mix alive');
+   assert.equal(musicTransitions.length,musicCategoryChanges,'RESET cannot switch audioSession back to auto');
+   // Hiding the page must still release the iOS audio category.
+   nodes.settings.open=false;
+   doc.hidden=true;
+   handlers.get('visibilitychange')?.();
+   assert.equal(audioSession.type,'auto','background shutdown restores original session');
  }finally{
    Date.now=oldNow;
    for(const [key,descriptor] of backup){

@@ -2,8 +2,9 @@
  * Preview-only audio coexistence: 'transient' allows short HTML Audio cues
  * to mix with other apps on the user's tested iPhone. It MAY reduce other
  * volume, but the browser cannot request or guarantee a 50% reduction.
- * RC7: hold transient for the running session (until PAUSE/RESET/HOME),
- * rather than repeatedly restoring auto after each gong. iPhone validation
+ * RC14: hold transient across foreground PAUSE/RESET, not just each gong.
+ * Restore original mode when leaving the screen or switching transport.
+ * On tested iPhone, resetting transient to auto had interrupted music. iPhone validation
  * must establish whether this avoids stopping the other music.
  * Never request exclusive 'transient-solo' playback.
  */

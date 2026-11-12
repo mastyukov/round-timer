@@ -147,7 +147,7 @@ function preloadSounds(){
 function sound(type){
  if(document.hidden||audioInterruption.interrupted)return;
  if(audioMode==='html' && htmlSounds){
-   sessionMix.begin(); // Hold until PAUSE/RESET/HOME, not per-gong timer.
+   sessionMix.begin(); // Retain iOS mix through foreground PAUSE/RESET, not per cue.
    htmlSounds.play(type);
    return;
  }

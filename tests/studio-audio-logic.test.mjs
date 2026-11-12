@@ -47,7 +47,7 @@ test('RC11 work and rest colors use the approved bright palette',()=>{
 });
 test('RC11 offline service worker names all five original studio recordings',()=>{
  const sw=file('sw.js');
- assert(sw.includes('round-timer-shell-v0.8.9-recovery-rc13'));
+ assert(sw.includes('round-timer-shell-v0.8.10-mix-rc14'));
  for(const name of ['studio-gong-start','studio-gong-end','woodclack-single','woodclack-double','button']){
    assert(sw.includes("'./sounds/"+name+".mp3'"),name);
  }
