@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="round-timer-version" content="v0.8.15">
   <meta name="theme-color" content="#08130d">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -16,10 +17,11 @@
   <title>Раунд таймер</title>
 </head>
 <body class="phase-idle">
+  <div id="settingsBackdrop" class="settings-backdrop" aria-hidden="true"></div>
   <div class="app-shell">
     <main>
       <section class="scoreboard" aria-label="Текущая тренировка">
-        <p class="round-line" id="roundLabel">РАУНД 1 / 3</p>
+        <p class="round-line" id="roundLabel"><span class="round-word">РАУНД</span><span class="round-count" id="roundCount" role="text" aria-label="Раунд 1/3"><span class="round-number" id="roundCurrent">1</span><span class="round-slash" aria-hidden="true"></span><span class="round-number" id="roundTotal">3</span></span></p>
         <div class="clock-frame"><div id="clock" class="clock" role="timer" aria-live="off">01:00</div></div>
         <div class="phase-line" id="phaseLabel">ГОТОВ К СТАРТУ</div>
         <div class="progress-track" aria-hidden="true"><div id="progressBar" class="progress-fill"></div></div>
@@ -36,6 +38,7 @@
           <label>Количество раундов <select id="roundsInput"></select></label>
           <label>Подготовка <select id="prepareInput"></select></label>
           <button type="button" id="closeSettingsButton" class="close-settings">✓ ГОТОВО · ВЕРНУТЬСЯ К ТАЙМЕРУ</button>
+          <small class="preview-version" aria-label="Версия таймера">ВЕРСИЯ · v0.8.15</small>
         </form>
       </details></div>
     </main>

@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   verify:
-    name: Verify exact v0.8.5 release
+    name: Verify exact approved v0.8.15 release
     runs-on: ubuntu-latest
     timeout-minutes: 7
     steps:
@@ -36,7 +36,12 @@ jobs:
           test ! -d site/project
           node --check site/app.mjs
           node --check site/engine.mjs
+          node --check site/audio-guard.mjs
+          node --check site/html-audio.mjs
+          node --check site/audio-duck.mjs
+          node --check site/web-audio-retire.mjs
           node --check site/sw.js
+          for f in studio-gong-start studio-gong-end woodclack-single woodclack-double button; do test -s "site/sounds/$f.mp3"; done
           node --check site/diagnostics/schema.mjs
           node --check site/diagnostics/sender.mjs
           node --test tests/*.test.mjs
@@ -52,8 +57,11 @@ jobs:
           assert manifest['start_url']=='./'
           assert manifest['scope']=='./'
           assert 'diag_test' not in (folder/'app.mjs').read_text()
-          assert 'round-timer-shell-v0.8.5' in (folder/'sw.js').read_text()
-          print('PASS: only approved 0.8.5 files can be published')
+          assert 'round-timer-shell-v0.8.15' in (folder/'sw.js').read_text()
+          assert 'const isPreview=true;' in (folder/'app.mjs').read_text()
+          assert 'round-timer-version' in (folder/'index.html').read_text()
+          assert 'ТЕСТОВАЯ ВЕРСИЯ' not in (folder/'index.html').read_text()
+          print('PASS: exact approved v0.8.15 files and stable features')
           PY
 
   deploy:
