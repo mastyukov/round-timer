@@ -10,6 +10,7 @@ test('RC13 supports explicit Web to HTML switch on the fresh preview preference 
  const oldNow=Date.now;
  let time=1800000000000,heartbeat=null;
  const handlers=new Map(),store=new Map([['round-timer-preview-transport-rc13-v1','web']]);
+ const addHandler=(name,callback)=>{const prior=handlers.get(name)||[];prior.push(callback);handlers.set(name,prior);};
  const musicTransitions=[];
  const audioSession={_type:'auto',get type(){return this._type;},
    set type(value){this._type=value;musicTransitions.push(value);}};
@@ -47,13 +48,13 @@ test('RC13 supports explicit Web to HTML switch on the fresh preview preference 
  const win={
    innerWidth:380,innerHeight:810,Audio:HTMLAudio,AudioContext:WebAudio,
    matchMedia:()=>({matches:true}),
-   addEventListener:(n,fn)=>handlers.set(n,fn)
+   addEventListener:(n,fn)=>addHandler(n,fn)
  };
  const doc={hidden:false,body:{className:'',classList:{toggle(){}}},
    documentElement:{},
    getElementById:id=>nodes[id],
    createElement:name=>new Element(name),
-   addEventListener:(n,fn)=>handlers.set(n,fn)
+   addEventListener:(n,fn)=>addHandler(n,fn)
  };
  const set=(name,value)=>Object.defineProperty(globalThis,name,{configurable:true,writable:true,value});
  const findSelect=title=>{
@@ -122,7 +123,7 @@ test('RC13 supports explicit Web to HTML switch on the fresh preview preference 
    // Hiding the page must still release the iOS audio category.
    nodes.settings.open=false;
    doc.hidden=true;
-   handlers.get('visibilitychange')?.();
+   for(const callback of handlers.get('visibilitychange')||[])callback();
    assert.equal(audioSession.type,'auto','background shutdown restores original session');
  }finally{
    Date.now=oldNow;
