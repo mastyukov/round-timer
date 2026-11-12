@@ -26,7 +26,7 @@ export function createDelayedStartGuard({canPlay, play}) {
  */
 export function createActiveSoundController() {
   const active = new Set();
-  function play({context, buffer, offset = 0, volume = 1}) {
+  function play({context, buffer, offset = 0, volume = 1, category = 'cue'}) {
     const source = context.createBufferSource();
     const gain = context.createGain();
     const at = context.currentTime + 0.008 + offset;
@@ -34,7 +34,7 @@ export function createActiveSoundController() {
     gain.gain.value = volume;
     source.connect(gain);
     gain.connect(context.destination);
-    const entry = {source, gain, context, stopping: false};
+    const entry = {source, gain, context, category, stopping: false};
     const cleanup = () => {
       active.delete(entry);
       try { source.disconnect(); } catch (_) {}
@@ -45,8 +45,9 @@ export function createActiveSoundController() {
     try { source.start(at); }
     catch (error) { cleanup(); throw error; }
   }
-  function stopAll({fadeMs = 16} = {}) {
+  function stopAll({fadeMs = 16, includeButton = true} = {}) {
     for (const entry of active) {
+      if(!includeButton && entry.category==='button')continue;
       // Keep fading nodes until onended. If pagehide follows blur/pause,
       // an immediate stop must still be able to preempt a pending fade.
       if (entry.stopping && fadeMs > 0) continue;

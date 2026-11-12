@@ -3,7 +3,7 @@ import {createDelayedStartGuard,createActiveSoundController,createAudioInterrupt
 import {createHtmlAudioController} from './html-audio.mjs';
 import {createWebAudioRetirement} from './web-audio-retire.mjs';
 import {createAudioDucking} from './audio-duck.mjs';
-const DIAGNOSTICS_VERSION='0.8.9';
+const DIAGNOSTICS_VERSION='0.8.10';
 const diagnosticSender=createDiagnosticSender({
   endpoint:productionDiagnosticEndpoint(globalThis.location,'https://round-timer-error-receiver.mastyukov.workers.dev/v1/error')
 });
@@ -163,15 +163,20 @@ function sound(type){
  }
  const offsets=type==='slow-double'?[0,.25]:type==='double'?[0,.145]:[0];
  for(const offset of offsets){
-   try {activeSounds.play({context:audioContext,buffer:sample,offset,volume:kind==='clack'?.96:.9});}
+   try {activeSounds.play({context:audioContext,buffer:sample,offset,volume:kind==='clack'?.96:.9,category:kind==='button'?'button':'cue'});}
    catch(_){void diagnosticSender.report({event:'audio_failure',code:'AUDIO_PLAY_REJECTED',component:'audio',version:DIAGNOSTICS_VERSION});}
  }
 }
-function stopActiveAudio({fadeMs=16,preserveButton=false}={}){
+// Foreground PAUSE/RESET should not switch Safari from transient back to
+// auto, since this interrupts other apps' background music on the iPhone.
+function keepForegroundMix(){
+ return isPreview&&audioMode==='html'&&musicMixEnabled&&!document.hidden;
+}
+function stopActiveAudio({fadeMs=16,preserveButton=false,preserveMix=false}={}){
  delayedStartGong.invalidate();
- activeSounds.stopAll({fadeMs});
+ activeSounds.stopAll({fadeMs,includeButton:!preserveButton});
  htmlSounds?.stopAll({includeButton:!preserveButton});
- sessionMix.stop();
+ if(!preserveMix)sessionMix.stop();
 }
 const audioInterruption=createAudioInterruptionGuard({
  windowTarget:window,documentTarget:document,
@@ -223,6 +228,8 @@ if(isPreview && htmlSounds){
    pausePreviewForAudioChange();
    stopActiveAudio({fadeMs:0});
    audioMode=select.value==='web'?'web':'html';
+   // On a user-initiated mode change, prepare Web Audio before subsequent taps.
+   if(audioMode==='web')unlockAudio();
    if(cueLatencyLabel)cueLatencyLabel.hidden=audioMode!=='html';
    if(musicMixLabel)musicMixLabel.hidden=audioMode!=='html';
    try{localStorage.setItem(PREVIEW_AUDIO_KEY,audioMode);}catch(_){}
@@ -349,7 +356,7 @@ function startPause(){
   delayedStartGong.invalidate();
   const current=session&&phaseNow();
   if(!session||current?.type==='done'){
-    stopActiveAudio();
+    stopActiveAudio({preserveMix:keepForegroundMix()});
     firstClackMeasured=false;
     if(cueLatencyLabel)cueLatencyLabel.textContent='Первый щелчок: задержка ещё не измерена';
     unlockAudio();
@@ -361,19 +368,22 @@ function startPause(){
     startupCuePlayed=config.prepare<=5;
     ensureScreenOn();
   } else if(session.status==='running'){
-    stopActiveAudio({preserveButton:isPreview});
+    stopActiveAudio({preserveButton:isPreview,preserveMix:keepForegroundMix()});
     session.elapsedBeforeMs=elapsedNow();session.resumedAt=0;session.status='paused';releaseScreenOn();
   } else {unlockAudio();session.status='running';session.resumedAt=Date.now();ensureScreenOn();}
   save();draw({notify:false});
   return startupCuePlayed;
 }
-function reset(){if(el.settings.open)return;stopActiveAudio({preserveButton:isPreview});session=null;lastPhase=null;config=readConfig();save();releaseScreenOn();draw({notify:false});}
+function reset(){if(el.settings.open)return;stopActiveAudio({preserveButton:isPreview,preserveMix:keepForegroundMix()});session=null;lastPhase=null;config=readConfig();save();releaseScreenOn();draw({notify:false});}
 function buttonSound(){
  if(!isPreview||document.hidden||audioInterruption.interrupted)return false;
  if(audioMode==='html'&&htmlSounds){
    sessionMix.begin();
    return htmlSounds.playButton();
  }
+ // Unlock Web Audio inside the actual pointer gesture. The very first tap
+ // may still be silent until decoding completes; never play it back late.
+ if(!audioContext||audioContext.state!=='running')unlockAudio();
  sound('button');
  return true;
 }
