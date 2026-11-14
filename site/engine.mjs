@@ -49,3 +49,11 @@ export function crossedCountdown(prev,now) {
   const thresholds=[...(now.type==='work'&&now.durationMs>60000?[60]:[]),30,10,5,4,3,2,1];
   return thresholds.filter(sec=>sec*1000<now.durationMs && prev.remainingMs>sec*1000 && now.remainingMs<=sec*1000);
 }
+
+/** Single gong for non-final transitions, approved triple end gong only at completion. */
+export function cueForPhaseTransition(phase){
+  if(!phase)return null;
+  if(phase.type==='work'||phase.type==='rest')return 'start';
+  if(phase.type==='done')return 'end';
+  return null;
+}
