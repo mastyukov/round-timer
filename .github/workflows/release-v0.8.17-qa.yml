@@ -9,6 +9,8 @@ permissions:
   contents: read
 jobs:
   verify:
+    # Historical v0.8.17 gate is version-pinned; newer release PRs use new QA.
+    if: github.event_name == 'push' || github.head_ref == 'assistant/round-timer/v0817-foreground-audio-20261114'
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
