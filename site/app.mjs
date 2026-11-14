@@ -3,13 +3,13 @@ import {createDelayedStartGuard,createActiveSoundController,createAudioInterrupt
 import {createHtmlAudioController} from './html-audio.mjs';
 import {createWebAudioRetirement} from './web-audio-retire.mjs';
 import {createAudioDucking} from './audio-duck.mjs';
-const DIAGNOSTICS_VERSION='0.8.17';
+const DIAGNOSTICS_VERSION='0.8.18';
 const diagnosticSender=createDiagnosticSender({
   endpoint:productionDiagnosticEndpoint(globalThis.location,'https://round-timer-error-receiver.mastyukov.workers.dev/v1/error')
 });
 attachBrowserErrorCapture({target:window,sender:diagnosticSender,version:DIAGNOSTICS_VERSION});
 // Error-only telemetry; no usage, no personal information and no UI changes.
-import {normalizeConfig,computePhase,formatTime,WORK_CHOICES,REST_CHOICES,ROUND_CHOICES,PREPARE_CHOICES,crossedCountdown} from './engine.mjs';
+import {normalizeConfig,computePhase,formatTime,WORK_CHOICES,REST_CHOICES,ROUND_CHOICES,PREPARE_CHOICES,crossedCountdown,cueForPhaseTransition} from './engine.mjs';
 const STORAGE_KEY='timer-active-session-v1';
 // RC6 preview resets earlier transport and speculative 50% options.
 // RC13 TEST: reset previously saved audio mode to reliable HTML default.
@@ -173,9 +173,9 @@ function sound(type){
    });
    return;
  }
- const offsets=isPreview&&type==='ten-double'?[0,.142]:type==='slow-double'?[0,.25]:type==='double'?[0,.145]:[0];
+ const offsets=isPreview&&type==='ten-double'?[0,.145]:type==='slow-double'?[0,.25]:type==='double'?[0,.145]:[0];
  for(const offset of offsets){
-   try {activeSounds.play({context:audioContext,buffer:sample,offset,volume:kind==='button'?.5832:kind==='clack'?.96:.9,category:kind==='button'?'button':'cue'});}
+   try {activeSounds.play({context:audioContext,buffer:sample,offset,volume:kind==='button'?.10285714285714286:kind==='clack'?.96:.9,category:kind==='button'?'button':'cue'});}
    catch(_){void diagnosticSender.report({event:'audio_failure',code:'AUDIO_PLAY_REJECTED',component:'audio',version:DIAGNOSTICS_VERSION});}
  }
 }
@@ -409,9 +409,10 @@ function draw({notify=true}={}) {
         ?Math.max(0,elapsedNow()-phase.totalMs)
         :phase.durationMs-phase.remainingMs;
       if(isCueFresh(lateByMs)){
-        if(phase.type==='work')sound('start');
-        else if(phase.type==='rest')sound('end');
-        else if(phase.type==='done')sound('end');
+        // Between rounds: original single start gong. Triple end gong only
+        // after the last configured round (phase done).
+        const cue=cueForPhaseTransition(phase);
+        if(cue)sound(cue);
       }
     } else {
       // A single threshold crossed two seconds late is still a late signal.

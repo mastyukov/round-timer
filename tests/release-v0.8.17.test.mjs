@@ -28,13 +28,13 @@ test('Three legacy audio tracks and installed iPhone icons are preserved',()=>{
  };
  for(const [f,hash] of Object.entries(immutable))assert.equal(digest(f),hash,f);
 });
-test('Approved production visual and WebAudio behavior remains intact in v0.8.17',()=>{
+test('Approved production visual and WebAudio behavior remains intact in v0.8.18',()=>{
  const app=source('app.mjs'),css=source('styles.css'),html=source('index.html');
  assert(app.includes('const isPreview=true;'),'release must enable accepted RC19 on production origin');
  assert(app.includes('const AUDIO_QA_CONTROLS=false;'),'audio debugging controls remain disabled');
  assert(app.includes("let audioMode='web';"));
- assert(app.includes("type==='ten-double'?[0,.142]"));
- assert(app.includes("volume:kind==='button'?.5832:kind==='clack'?.96:.9"));
+ assert(app.includes("type==='ten-double'?[0,.145]"));
+ assert(app.includes("volume:kind==='button'?.10285714285714286:kind==='clack'?.96:.9"));
  assert(app.includes('isPreview?1.51:1.2'));
  assert(app.includes('isPreview?2.23:1.587'));
  assert(app.includes('isPreview?.965:.98'));
@@ -45,7 +45,7 @@ test('Approved production visual and WebAudio behavior remains intact in v0.8.17
  assert(html.includes('id="roundTotal">3'));
  assert(html.includes('class="round-slash"'));
 });
-test('Ten-second double-clack consists of two approved single hits separated by 142 ms',()=>{
+test('Ten-second double-clack consists of two approved single hits separated by 145 ms',()=>{
  const played=[],tasks=[];
  const ctrl=createHtmlAudioController({
   makeAudio:name=>({paused:true,currentTime:0,load(){},pause(){this.paused=true;},play(){this.paused=false;played.push(name);return Promise.resolve();}}),
@@ -53,7 +53,7 @@ test('Ten-second double-clack consists of two approved single hits separated by 
   schedule:(fn,ms)=>{tasks.push({fn,ms});return tasks[tasks.length-1];},unschedule:()=>{}
  });
  ctrl.play('ten-double');
- assert.equal(tasks.length,1);assert.equal(tasks[0].ms,142);assert.deepEqual(played,['single']);
+ assert.equal(tasks.length,1);assert.equal(tasks[0].ms,145);assert.deepEqual(played,['single']);
  tasks[0].fn();assert.deepEqual(played,['single','single']);
 });
 test('One-minute default, Russian PWA title, and stable release version visible',()=>{
@@ -63,22 +63,22 @@ test('One-minute default, Russian PWA title, and stable release version visible'
  assert.equal(normalizeConfig({work:60}).rest,30);
  assert.equal(formatTime(60000),'01:00');
  assert(html.includes('aria-live="off">01:00'));
- assert(html.includes('name="round-timer-version" content="v0.8.17"'));
- assert(html.includes('ВЕРСИЯ · v0.8.17'));
+ assert(html.includes('name="round-timer-version" content="v0.8.18"'));
+ assert(html.includes('미하일 ВЕРСИЯ · v0.8.18'));
  assert(!html.includes('ТЕСТОВАЯ ВЕРСИЯ'));
  assert.equal(manifest.name,'Раунд таймер');
  assert.equal(manifest.start_url,'./');assert.equal(manifest.scope,'./');
 });
 test('PWA service worker precaches every required approved production asset',()=>{
  const sw=source('sw.js');
- assert(sw.includes("round-timer-shell-v0.8.17"));
+ assert(sw.includes("round-timer-shell-v0.8.18"));
  for(const p of ['index.html','styles.css','app.mjs','engine.mjs','audio-guard.mjs','audio-duck.mjs',
    'html-audio.mjs','web-audio-retire.mjs','diagnostics/sender.mjs','diagnostics/schema.mjs',
    'privacy.html','sounds/studio-gong-start.mp3','sounds/studio-gong-end.mp3',
    'sounds/woodclack-single.mp3','sounds/woodclack-double.mp3','sounds/button.mp3']){
   assert(sw.includes("'./"+p+"'"),'missing offline '+p);
  }
- assert(!sw.includes('v0.8.17-rc20'));
+ assert(!sw.includes('v0.8.18-rc20'));
 });
 test('Production-only error endpoint cannot be called from preview origins',()=>{
  const endpoint='https://round-timer-error-receiver.mastyukov.workers.dev/v1/error';
@@ -110,7 +110,7 @@ test('Cold-start gong, background restoration and optional recovery UI are shipp
  assert(css.includes('.audio-recovery[hidden]'));
 });
 
-test('v0.8.17 drops old browser callback sounds without altering elapsed time',()=>{
+test('v0.8.18 drops old browser callback sounds without altering elapsed time',()=>{
  const app=source('app.mjs'),guard=source('audio-guard.mjs');
  assert(app.includes('isCueFresh(lateByMs)'));
  assert(app.includes('isCueFresh(ticks[0]*1000-cuePhase.remainingMs)'));
