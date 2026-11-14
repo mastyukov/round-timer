@@ -9,6 +9,8 @@ permissions:
   contents: read
 jobs:
   verify:
+    # v0.8.15 is pinned to its historical release; skip unrelated newer PRs.
+    if: github.event_name == 'push' || github.head_ref == 'release/round-timer-v0.8.15-rc19-20261112'
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
