@@ -1,0 +1,33 @@
+name: APP-001 v0.8.16 — isolated release audio lifecycle QA
+on:
+  push:
+    branches: [fix/round-timer-audio-lifecycle-v0816-20261114]
+  pull_request:
+    branches: [main]
+    paths: [site/**, tests/**, .github/workflows/**, README.md]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify source code and protected production identity
+        run: |
+          set -euo pipefail
+          for f in site/app.mjs site/engine.mjs site/sw.js site/audio-guard.mjs site/html-audio.mjs site/web-audio-retire.mjs site/diagnostics/sender.mjs; do node --check "$f"; done
+          grep -Fq 'round-timer-shell-v0.8.16' site/sw.js
+          grep -Fq 'ВЕРСИЯ · v0.8.16' site/index.html
+          test ! -d site/tests
+          test ! -d site/receiver
+          test ! -d site/project
+      - name: Automated browser lifecycle and full JavaScript regression
+        run: node --test tests/*.test.mjs
+      - name: Synthetic Python safety regression
+        run: python3 -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Confirm approved studio audio assets
+        run: |
+          for f in studio-gong-start studio-gong-end woodclack-single woodclack-double button; do test -s "site/sounds/$f.mp3"; done

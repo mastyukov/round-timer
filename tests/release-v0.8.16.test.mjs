@@ -28,13 +28,13 @@ test('Three legacy audio tracks and installed iPhone icons are preserved',()=>{
  };
  for(const [f,hash] of Object.entries(immutable))assert.equal(digest(f),hash,f);
 });
-test('Approved RC19 visual and WebAudio behavior is enabled on the real production URL',()=>{
+test('Approved production visual and WebAudio behavior remains intact in v0.8.16',()=>{
  const app=source('app.mjs'),css=source('styles.css'),html=source('index.html');
  assert(app.includes('const isPreview=true;'),'release must enable accepted RC19 on production origin');
  assert(app.includes('const AUDIO_QA_CONTROLS=false;'),'audio debugging controls remain disabled');
  assert(app.includes("let audioMode='web';"));
- assert(app.includes("type==='ten-double'?[0,.140]"));
- assert(app.includes("volume:kind==='button'?.72:kind==='clack'?.96:.9"));
+ assert(app.includes("type==='ten-double'?[0,.142]"));
+ assert(app.includes("volume:kind==='button'?.648:kind==='clack'?.96:.9"));
  assert(app.includes('isPreview?1.51:1.2'));
  assert(app.includes('isPreview?2.23:1.587'));
  assert(app.includes('isPreview?.965:.98'));
@@ -45,7 +45,7 @@ test('Approved RC19 visual and WebAudio behavior is enabled on the real producti
  assert(html.includes('id="roundTotal">3'));
  assert(html.includes('class="round-slash"'));
 });
-test('Ten-second double-clack consists of two approved single hits separated by 140 ms',()=>{
+test('Ten-second double-clack consists of two approved single hits separated by 142 ms',()=>{
  const played=[],tasks=[];
  const ctrl=createHtmlAudioController({
   makeAudio:name=>({paused:true,currentTime:0,load(){},pause(){this.paused=true;},play(){this.paused=false;played.push(name);return Promise.resolve();}}),
@@ -53,7 +53,7 @@ test('Ten-second double-clack consists of two approved single hits separated by 
   schedule:(fn,ms)=>{tasks.push({fn,ms});return tasks[tasks.length-1];},unschedule:()=>{}
  });
  ctrl.play('ten-double');
- assert.equal(tasks.length,1);assert.equal(tasks[0].ms,140);assert.deepEqual(played,['single']);
+ assert.equal(tasks.length,1);assert.equal(tasks[0].ms,142);assert.deepEqual(played,['single']);
  tasks[0].fn();assert.deepEqual(played,['single','single']);
 });
 test('One-minute default, Russian PWA title, and stable release version visible',()=>{
@@ -63,22 +63,22 @@ test('One-minute default, Russian PWA title, and stable release version visible'
  assert.equal(normalizeConfig({work:60}).rest,30);
  assert.equal(formatTime(60000),'01:00');
  assert(html.includes('aria-live="off">01:00'));
- assert(html.includes('name="round-timer-version" content="v0.8.15"'));
- assert(html.includes('ВЕРСИЯ · v0.8.15'));
+ assert(html.includes('name="round-timer-version" content="v0.8.16"'));
+ assert(html.includes('ВЕРСИЯ · v0.8.16'));
  assert(!html.includes('ТЕСТОВАЯ ВЕРСИЯ'));
  assert.equal(manifest.name,'Раунд таймер');
  assert.equal(manifest.start_url,'./');assert.equal(manifest.scope,'./');
 });
 test('PWA service worker precaches every required approved production asset',()=>{
  const sw=source('sw.js');
- assert(sw.includes("round-timer-shell-v0.8.15"));
+ assert(sw.includes("round-timer-shell-v0.8.16"));
  for(const p of ['index.html','styles.css','app.mjs','engine.mjs','audio-guard.mjs','audio-duck.mjs',
    'html-audio.mjs','web-audio-retire.mjs','diagnostics/sender.mjs','diagnostics/schema.mjs',
    'privacy.html','sounds/studio-gong-start.mp3','sounds/studio-gong-end.mp3',
    'sounds/woodclack-single.mp3','sounds/woodclack-double.mp3','sounds/button.mp3']){
   assert(sw.includes("'./"+p+"'"),'missing offline '+p);
  }
- assert(!sw.includes('v0.8.15-rc19'));
+ assert(!sw.includes('v0.8.16-rc20'));
 });
 test('Production-only error endpoint cannot be called from preview origins',()=>{
  const endpoint='https://round-timer-error-receiver.mastyukov.workers.dev/v1/error';
@@ -96,4 +96,16 @@ test('Settings backdrop prevents accidental timer button actions while settings 
  assert(app.includes('el.start.disabled=!!el.settings.open'));
  assert(app.includes('el.reset.disabled=!!el.settings.open'));
  assert(css.includes('body.settings-visible .settings-backdrop'));
+});
+
+test('Cold-start gong, background restoration and optional recovery UI are shipped',()=>{
+ const app=source('app.mjs'),html=source('index.html'),css=source('styles.css');
+ assert(app.includes('delayedStartGong.schedule(ready,'));
+ assert(app.includes('elapsedNow()<=3000'));
+ assert(app.includes('if(web)webWasInterrupted=true;'));
+ assert(app.includes('const resume=context.state==='));
+ assert(app.includes("window.addEventListener('focus',endWebBackgroundReturn)"));
+ assert(app.includes("el.audioRecover?.addEventListener('click'"));
+ assert(html.includes('id="audioRecoveryButton"'));
+ assert(css.includes('.audio-recovery[hidden]'));
 });
