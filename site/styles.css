@@ -108,3 +108,7 @@ main { flex:1;min-height:0;display:flex;flex-direction:column; gap:clamp(8px,1.3
  .round-count {line-height:.94;}
  .clock-frame {flex:1 1 auto;min-height:0;}
 }
+
+/* v0.8.16: visible only when iOS blocks automatic Web Audio recovery. */
+.audio-recovery[hidden] {display:none!important;}
+.audio-recovery {width:100%;min-height:44px;border:1px solid #95c9ff;border-radius:12px;background:#385472;color:#fff;font-weight:850;font-size:1rem;}

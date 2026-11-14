@@ -69,7 +69,7 @@ export function createHtmlAudioController({
     else if(type==='ten-double'&&elements.clack2){
       // Use two approved single-hit samples with a shorter, deterministic gap.
       playElement(elements.clack1,token,'clack1');
-      pending=schedule(()=>{pending=null;playElement(elements.clack2,token,'clack2');},140);
+      pending=schedule(()=>{pending=null;playElement(elements.clack2,token,'clack2');},142);
     }
     else if(type==='slow-double'||type==='double'){
       playElement(elements.clack1,token,'clack1');
