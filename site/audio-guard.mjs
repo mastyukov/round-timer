@@ -130,3 +130,12 @@ export function createAudioInterruptionGuard({windowTarget, documentTarget, stop
     }
   });
 }
+
+/**
+ * Rejects stale timing callbacks after iOS app switching. 280ms tolerates
+ * normal 100ms foreground timer ticks but drops sounds 2 seconds late.
+ * No background playback, replay, or timer-speed adjustment.
+ */
+export function isCueFresh(lateByMs,{maxLateMs=280}={}) {
+  return Number.isFinite(lateByMs) && lateByMs>=0 && lateByMs<=maxLateMs;
+}

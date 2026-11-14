@@ -9,6 +9,8 @@ permissions:
   contents: read
 jobs:
   verify:
+    # Historical v0.8.16 QA must not fail newer release pull requests.
+    if: github.event_name == 'push' || github.head_ref == 'fix/round-timer-audio-lifecycle-v0816-20261114'
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:

@@ -178,10 +178,45 @@ test('142ms HTML fallback, quieter WebAudio buttons, stable UI and new offline c
  htmlAudioTasks[0].fn();
  assert.deepEqual(hits,['clack','clack']);
  const app=appSource(),htmlPage=source('index.html'),sw=source('sw.js');
- assert(app.includes("volume:kind==='button'?.648:kind==='clack'?.96:.9"));
+ assert(app.includes("volume:kind==='button'?.5832:kind==='clack'?.96:.9"));
  assert(app.includes("type==='ten-double'?[0,.142]"));
- assert(htmlPage.includes('ВЕРСИЯ · v0.8.16'));
+ assert(htmlPage.includes('ВЕРСИЯ · v0.8.17'));
  assert(htmlPage.includes('id="audioRecoveryButton"'));
- assert(sw.includes("round-timer-shell-v0.8.16"));
+ assert(sw.includes("round-timer-shell-v0.8.17"));
  assert(!htmlPage.includes('ТЕСТОВАЯ ВЕРСИЯ'));
+});
+
+test('a single 30-second clack received 2 seconds late is NOT played',async()=>{
+ await simulate('stale-clack',async({el,tap,played,flush,time,tick,getTime})=>{
+  tap(el.startPauseButton);
+  await flush();
+  const initial=played.length,base=getTime();
+  time(base+32000);
+  tick();
+  assert.equal(played.length,initial,'no 30s sound when delivered 2s late');
+  assert.equal(el.clock.textContent,'00:28','wall-clock countdown is not changed');
+ });
+});
+test('fresh 30-second clack remains audible within 80ms of its threshold',async()=>{
+ await simulate('fresh-clack',async({el,tap,played,flush,time,tick,getTime})=>{
+  tap(el.startPauseButton);
+  await flush();
+  const base=getTime();
+  time(base+30080);tick();
+  const clacks=played.filter(p=>p.path?.includes('woodclack-single.mp3'));
+  assert.equal(clacks.length,1,'fresh clack plays once');
+ });
+});
+test('2-second late phase-change gong is discarded, but next timely work gong sounds',async()=>{
+ await simulate('stale-next-gong',async({el,tap,played,flush,time,tick,getTime})=>{
+  tap(el.startPauseButton);
+  await flush();
+  const base=getTime(),gongStarts=()=>played.filter(p=>p.path?.includes('studio-gong-start.mp3')).length;
+  const gongEnds=()=>played.filter(p=>p.path?.includes('studio-gong-end.mp3')).length;
+  assert.equal(gongStarts(),1);
+  time(base+62000);tick(); // REST started at 60s; delayed 2 seconds
+  assert.equal(gongEnds(),0,'stale REST transition not replayed');
+  time(base+90080);tick(); // WORK 2 begins at 90s; callback just 80ms late
+  assert.equal(gongStarts(),2,'next timely gong is not muted');
+ });
 });
