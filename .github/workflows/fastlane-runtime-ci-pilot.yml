@@ -1,0 +1,65 @@
+name: APP-001 FAST LANE Runtime CI Pilot (isolated, no deploy)
+on:
+  push:
+    branches:
+      - assistant/round-timer/runtime-ci-pilot-20261114
+    paths:
+      - 'pilot/fastlane/**'
+      - '.github/workflows/fastlane-runtime-ci-pilot.yml'
+permissions:
+  contents: read
+concurrency:
+  group: app001-fastlane-runtime-pilot
+  cancel-in-progress: true
+jobs:
+  fast:
+    name: FAST — Node 26 · syntax & synthetic timer model
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+      - name: Assert Node 26 and syntax of unchanged production modules
+        run: |
+          set -euo pipefail
+          node --version
+          node -e "if(process.versions.node.split('.')[0]!=='26')process.exit(1)"
+          for f in site/app.mjs site/engine.mjs site/audio-guard.mjs site/sw.js; do node --check "$f"; done
+      - name: Narrow FAST synthetic checks — no Python or Playwright
+        run: |
+          set -euo pipefail
+          node --test tests/timer-model.test.mjs pilot/fastlane/fast-smoke.test.mjs pilot/fastlane/provenance-policy.test.mjs
+  full_probe:
+    name: ONE-TIME PILOT — Node 26 + Python 3.12 · full model QA
+    if: contains(github.event.head_commit.message, '[pilot-full]') && github.repository == 'mastyukov/round-timer'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify declared runtime versions (no installs on user's Mac)
+        run: |
+          set -euo pipefail
+          node --version
+          python --version
+          node -e "if(process.versions.node.split('.')[0]!=='26')process.exit(1)"
+          python -c "import sys; assert sys.version_info[:2] == (3,12)"
+      - name: STANDARD + CRITICAL + release-like synthetic models
+        run: |
+          set -euo pipefail
+          node --test tests/*.test.mjs pilot/fastlane/*.test.mjs
+      - name: Python 3.12 diagnostics regression (no deployment)
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p 'test_*.py' -v
