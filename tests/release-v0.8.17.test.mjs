@@ -34,7 +34,7 @@ test('Approved production visual and WebAudio behavior remains intact in v0.8.18
  assert(app.includes('const AUDIO_QA_CONTROLS=false;'),'audio debugging controls remain disabled');
  assert(app.includes("let audioMode='web';"));
  assert(app.includes("type==='ten-double'?[0,.145]"));
- assert(app.includes("volume:kind==='button'?.10285714285714286:kind==='clack'?.96:.9"));
+ assert(app.includes("volume:kind==='button'?.216:kind==='clack'?.96:.9"));
  assert(app.includes('isPreview?1.51:1.2'));
  assert(app.includes('isPreview?2.23:1.587'));
  assert(app.includes('isPreview?.965:.98'));

@@ -4,7 +4,7 @@
 
 Changes approved for this candidate:
 - 10-second double wooden sticks: 145 ms apart in Web Audio and HTML fallback.
-- Buttons: 7x quieter than the earlier Web Audio gain of 0.72 (new amplitude 0.10285714285714286). This is not a mathematically impossible “700% volume reduction” and is not a decibel claim.
+- Buttons: 30% of the original Web Audio gain 0.72 (new amplitude 0.216; 70% lower than original). User clarified this replaces the earlier sevenfold interpretation.
 - Round end before the final round: the existing single *start* gong recording, for example after rounds 1/3 and 2/3.
 - Only the completed last round, e.g. 3/3: the existing approved triple *end* gong.
 - Settings credit: `미하일 ВЕРСИЯ · v0.8.18`.

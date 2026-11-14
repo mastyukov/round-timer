@@ -40,10 +40,10 @@ test('two single wooden clacks have 145ms spacing in both engines',()=>{
  assert.deepEqual(hits,['single','single']);
  assert(src('app.mjs').includes("type==='ten-double'?[0,.145]"));
 });
-test('original button gain 0.72 divided by 7; other sample gains unchanged',()=>{
- const app=src('app.mjs'),gain=.10285714285714286;
- assert(Math.abs(gain*7-.72)<1e-12);
- assert(app.includes("volume:kind==='button'?.10285714285714286:kind==='clack'?.96:.9"));
+test('button gain equals 30% of original 0.72; other sample gains unchanged',()=>{
+ const app=src('app.mjs'),gain=.216;
+ assert(Math.abs(gain/.72-.30)<1e-12);
+ assert(app.includes("volume:kind==='button'?.216:kind==='clack'?.96:.9"));
 });
 test('Korean text precedes version; offline shell and round layout retained',()=>{
  const html=src('index.html'),sw=src('sw.js');

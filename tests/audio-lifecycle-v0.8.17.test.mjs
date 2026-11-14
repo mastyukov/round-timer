@@ -178,7 +178,7 @@ test('145ms HTML fallback, quieter WebAudio buttons, stable UI and new offline c
  htmlAudioTasks[0].fn();
  assert.deepEqual(hits,['clack','clack']);
  const app=appSource(),htmlPage=source('index.html'),sw=source('sw.js');
- assert(app.includes("volume:kind==='button'?.10285714285714286:kind==='clack'?.96:.9"));
+ assert(app.includes("volume:kind==='button'?.216:kind==='clack'?.96:.9"));
  assert(app.includes("type==='ten-double'?[0,.145]"));
  assert(htmlPage.includes('ВЕРСИЯ · v0.8.18'));
  assert(htmlPage.includes('id="audioRecoveryButton"'));

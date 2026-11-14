@@ -175,7 +175,7 @@ function sound(type){
  }
  const offsets=isPreview&&type==='ten-double'?[0,.145]:type==='slow-double'?[0,.25]:type==='double'?[0,.145]:[0];
  for(const offset of offsets){
-   try {activeSounds.play({context:audioContext,buffer:sample,offset,volume:kind==='button'?.10285714285714286:kind==='clack'?.96:.9,category:kind==='button'?'button':'cue'});}
+   try {activeSounds.play({context:audioContext,buffer:sample,offset,volume:kind==='button'?.216:kind==='clack'?.96:.9,category:kind==='button'?'button':'cue'});}
    catch(_){void diagnosticSender.report({event:'audio_failure',code:'AUDIO_PLAY_REJECTED',component:'audio',version:DIAGNOSTICS_VERSION});}
  }
 }
