@@ -1,0 +1,45 @@
+name: APP-001 v0.8.18 — Audio policy QA, isolated, NO DEPLOY
+on:
+  push:
+    branches: [qa/round-timer-v0818-gong-audio-20261114]
+    paths:
+      - 'site/**'
+      - 'tests/**'
+      - 'project/qa/**'
+      - '.github/workflows/v0818-audio-candidate-qa.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify Node 26 and Python 3.12
+        run: |
+          set -euo pipefail
+          node --version
+          python --version
+          node -e "if(process.versions.node.split('.')[0]!=='26')process.exit(1)"
+          python -c "import sys;assert sys.version_info[:2]==(3,12)"
+      - name: JS syntax and complete existing + new synthetic regression
+        run: |
+          set -euo pipefail
+          for f in site/app.mjs site/engine.mjs site/html-audio.mjs site/audio-guard.mjs site/sw.js; do node --check "$f"; done
+          node --test tests/*.test.mjs
+      - name: Python diagnostics and monitoring regression
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p 'test_*.py' -v
+      - name: No deployment or production changes
+        run: |
+          test "$GITHUB_REF_NAME" = 'qa/round-timer-v0818-gong-audio-20261114'
+          test -f site/sw.js
