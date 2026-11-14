@@ -12,7 +12,7 @@ async function simulate(label,run,{delayInitialResume=false}={}){
  const originalDateNow=Date.now;
  let now=500000, heartbeat=null;
  const windows=new Map(),documents=new Map(),instances=[],played=[],storage=new Map();
- const emit=(target,name)=>{for(const fn of target.get(name)||[])fn();};
+ const emit=(target,name)=>{for(const fn of target.get(name)||[])fn({isPrimary:true,preventDefault(){}});};
  const on=(map,name,fn)=>map.set(name,[...(map.get(name)||[]),fn]);
  class Element{
   constructor(name){this.name=name;this.value='';this.disabled=false;this.open=false;this.hidden=name==='audioRecoveryButton';
