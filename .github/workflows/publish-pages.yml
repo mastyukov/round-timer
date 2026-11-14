@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   verify:
-    name: Verify exact approved v0.8.16 release
+    name: Verify exact approved v0.8.17 release
     runs-on: ubuntu-latest
     timeout-minutes: 7
     steps:
@@ -57,11 +57,11 @@ jobs:
           assert manifest['start_url']=='./'
           assert manifest['scope']=='./'
           assert 'diag_test' not in (folder/'app.mjs').read_text()
-          assert 'round-timer-shell-v0.8.16' in (folder/'sw.js').read_text()
+          assert 'round-timer-shell-v0.8.17' in (folder/'sw.js').read_text()
           assert 'const isPreview=true;' in (folder/'app.mjs').read_text()
           assert 'round-timer-version' in (folder/'index.html').read_text()
           assert 'ТЕСТОВАЯ ВЕРСИЯ' not in (folder/'index.html').read_text()
-          print('PASS: exact approved v0.8.16 files and stable features')
+          print('PASS: exact approved v0.8.17 files and stable features')
           PY
 
   deploy:

@@ -1,9 +1,9 @@
 import {createDiagnosticSender,attachBrowserErrorCapture,productionDiagnosticEndpoint} from './diagnostics/sender.mjs';
-import {createDelayedStartGuard,createActiveSoundController,createAudioInterruptionGuard} from './audio-guard.mjs';
+import {createDelayedStartGuard,createActiveSoundController,createAudioInterruptionGuard,isCueFresh} from './audio-guard.mjs';
 import {createHtmlAudioController} from './html-audio.mjs';
 import {createWebAudioRetirement} from './web-audio-retire.mjs';
 import {createAudioDucking} from './audio-duck.mjs';
-const DIAGNOSTICS_VERSION='0.8.16';
+const DIAGNOSTICS_VERSION='0.8.17';
 const diagnosticSender=createDiagnosticSender({
   endpoint:productionDiagnosticEndpoint(globalThis.location,'https://round-timer-error-receiver.mastyukov.workers.dev/v1/error')
 });
@@ -175,7 +175,7 @@ function sound(type){
  }
  const offsets=isPreview&&type==='ten-double'?[0,.142]:type==='slow-double'?[0,.25]:type==='double'?[0,.145]:[0];
  for(const offset of offsets){
-   try {activeSounds.play({context:audioContext,buffer:sample,offset,volume:kind==='button'?.648:kind==='clack'?.96:.9,category:kind==='button'?'button':'cue'});}
+   try {activeSounds.play({context:audioContext,buffer:sample,offset,volume:kind==='button'?.5832:kind==='clack'?.96:.9,category:kind==='button'?'button':'cue'});}
    catch(_){void diagnosticSender.report({event:'audio_failure',code:'AUDIO_PLAY_REJECTED',component:'audio',version:DIAGNOSTICS_VERSION});}
  }
 }
@@ -403,13 +403,21 @@ function draw({notify=true}={}) {
   if(session&&session.status==='running'&&type==='done')releaseScreenOn();
   if(notify&&session&&session.status==='running'&&lastPhase&&!document.hidden){
     if(phase.key!==lastPhase.key){
-      if(phase.type==='work')sound('start');
-      else if(phase.type==='rest')sound('end');
-      else if(phase.type==='done')sound('end');
+      // Never replay a stale gong if WebKit delivers the phase-change callback
+      // seconds late after the user returns to the app.
+      const lateByMs=phase.type==='done'
+        ?Math.max(0,elapsedNow()-phase.totalMs)
+        :phase.durationMs-phase.remainingMs;
+      if(isCueFresh(lateByMs)){
+        if(phase.type==='work')sound('start');
+        else if(phase.type==='rest')sound('end');
+        else if(phase.type==='done')sound('end');
+      }
     } else {
-      // Skip catch-up bursts on delayed ticks (e.g., the tab was briefly throttled).
+      // A single threshold crossed two seconds late is still a late signal.
       const ticks=crossedCountdown(lastCuePhase||lastPhase,cuePhase);
-      if(ticks.length===1)sound(isPreview?(ticks[0]===10?'ten-double':'single'):(ticks[0]===30||ticks[0]===10)?'slow-double':'single');
+      if(ticks.length===1 && isCueFresh(ticks[0]*1000-cuePhase.remainingMs))
+        sound(isPreview?(ticks[0]===10?'ten-double':'single'):(ticks[0]===30||ticks[0]===10)?'slow-double':'single');
     }
   }
   lastPhase=session?phase:null;
