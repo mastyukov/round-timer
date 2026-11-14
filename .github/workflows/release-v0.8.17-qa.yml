@@ -1,0 +1,32 @@
+name: APP-001 v0.8.17 — isolated foreground cue timing QA (never deploy)
+on:
+  push:
+    branches: [assistant/round-timer/v0817-foreground-audio-20261114]
+  pull_request:
+    branches: [main]
+    paths: [site/**, tests/**, .github/workflows/**, README.md]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Syntax and candidate identity
+        run: |
+          set -euo pipefail
+          for f in site/app.mjs site/engine.mjs site/sw.js site/audio-guard.mjs site/html-audio.mjs site/diagnostics/sender.mjs; do node --check "$f"; done
+          grep -Fq 'round-timer-shell-v0.8.17' site/sw.js
+          grep -Fq 'ВЕРСИЯ · v0.8.17' site/index.html
+          test ! -d site/tests
+          test ! -d site/receiver
+      - name: All synthetic browser lifecycle, cue freshness and release regressions
+        run: node --test tests/*.test.mjs
+      - name: Privacy and diagnostics regressions
+        run: python3 -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Exact approved studio MP3s
+        run: |
+          for f in studio-gong-start studio-gong-end woodclack-single woodclack-double button; do test -s "site/sounds/$f.mp3"; done
