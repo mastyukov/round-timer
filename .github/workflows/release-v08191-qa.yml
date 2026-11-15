@@ -1,0 +1,65 @@
+name: APP-001 FINAL 0.8.19.1 — Release Candidate QA (never deploy)
+on:
+  push:
+    branches: [release/round-timer-v08191-20261115]
+    paths:
+      - 'site/**'
+      - 'tests/**'
+      - 'project/releases/v0.8.19.1-release.md'
+      - '.github/workflows/release-v08191-qa.yml'
+      - '.github/workflows/ci.yml'
+      - '.github/workflows/publish-pages.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'tests/**'
+      - '.github/workflows/**'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Assert release version, Node 26, Python 3.12
+        run: |
+          set -euo pipefail
+          node --version
+          python --version
+          node -e "if(process.versions.node.split('.')[0]!=='26')process.exit(1)"
+          python -c "import sys;assert sys.version_info[:2]==(3,12)"
+          grep -Fq '미하일 0.8.19.1' site/index.html
+          grep -Fq 'round-timer-shell-v0.8.19.1' site/sw.js
+          grep -Fq "volume:kind==='button'?.1944" site/app.mjs
+          grep -Fq "type==='ten-double'?[0,.478]" site/app.mjs
+      - name: Syntax and full JS lifecycle + frozen-clock regression
+        run: |
+          set -euo pipefail
+          for f in site/app.mjs site/engine.mjs site/audio-guard.mjs site/audio-clock-watchdog.mjs site/html-audio.mjs site/sw.js; do node --check "$f"; done
+          node --test tests/*.test.mjs
+      - name: Python diagnostics and privacy tests
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Original 5 studio samples exactly unchanged
+        run: |
+          node --input-type=module - <<'JS'
+          import {readFileSync} from 'node:fs';
+          import {createHash} from 'node:crypto';
+          const m=JSON.parse(readFileSync('project/releases/v0.8.15-studio-audio-manifest.json','utf8'));
+          if(m.files.length!==5)throw Error('Five approved samples expected');
+          for(const f of m.files){
+            const bytes=readFileSync('site/sounds/'+f.name);
+            if(bytes.length!==f.bytes||createHash('sha256').update(bytes).digest('hex')!==f.sha256)
+              throw Error('Modified studio MP3: '+f.name);
+          }
+          console.log('Studio MP3 SHA-256: 5/5 PASS');
+          JS

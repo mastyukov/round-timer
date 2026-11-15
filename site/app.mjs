@@ -3,7 +3,8 @@ import {createDelayedStartGuard,createActiveSoundController,createAudioInterrupt
 import {createHtmlAudioController} from './html-audio.mjs';
 import {createWebAudioRetirement} from './web-audio-retire.mjs';
 import {createAudioDucking} from './audio-duck.mjs';
-const DIAGNOSTICS_VERSION='0.8.18';
+import {createAudioClockWatchdog,pulseStalledContext} from './audio-clock-watchdog.mjs';
+const DIAGNOSTICS_VERSION='0.8.19.1';
 const diagnosticSender=createDiagnosticSender({
   endpoint:productionDiagnosticEndpoint(globalThis.location,'https://round-timer-error-receiver.mastyukov.workers.dev/v1/error')
 });
@@ -173,9 +174,9 @@ function sound(type){
    });
    return;
  }
- const offsets=isPreview&&type==='ten-double'?[0,.145]:type==='slow-double'?[0,.25]:type==='double'?[0,.145]:[0];
+ const offsets=isPreview&&type==='ten-double'?[0,.478]:type==='slow-double'?[0,.25]:type==='double'?[0,.155]:[0];
  for(const offset of offsets){
-   try {activeSounds.play({context:audioContext,buffer:sample,offset,volume:kind==='button'?.216:kind==='clack'?.96:.9,category:kind==='button'?'button':'cue'});}
+   try {activeSounds.play({context:audioContext,buffer:sample,offset,volume:kind==='button'?.1944:kind==='clack'?.96:.9,category:kind==='button'?'button':'cue'});}
    catch(_){void diagnosticSender.report({event:'audio_failure',code:'AUDIO_PLAY_REJECTED',component:'audio',version:DIAGNOSTICS_VERSION});}
  }
 }
@@ -191,6 +192,7 @@ function stopActiveAudio({fadeMs=16,preserveButton=false,preserveMix=false}={}){
  if(!preserveMix)sessionMix.stop();
 }
 let audioRecoveryEpoch=0;
+let audioClockNeedsGesture=false;
 function showAudioRecovery(show){if(el.audioRecover)el.audioRecover.hidden=!show;}
 const audioInterruption=createAudioInterruptionGuard({
  windowTarget:window,documentTarget:document,
@@ -200,9 +202,38 @@ const audioInterruption=createAudioInterruptionGuard({
    // Creating a fresh context without a direct tap can fail on iPhone Safari.
    stopActiveAudio({fadeMs:web?0:reason==='blur'?12:0});
    if(web)webWasInterrupted=true;
+   audioClockWatchdog.resetEpoch();
    ++audioRecoveryEpoch;
  },
 });
+
+// Approved watchdog for an iOS WebKit AudioContext with state='running'
+// while its audio rendering clock no longer advances. Never replay past cues.
+const audioClockWatchdog=createAudioClockWatchdog({
+ getContext:()=>audioContext,
+ isEligible:()=>isPreview&&audioMode==='web'&&!document.hidden&&
+  !audioInterruption.interrupted&&session?.status==='running'&&
+  phaseNow().type!=='done',
+ onStall:ctx=>{
+  if(ctx!==audioContext)return;
+  console.warn('[RT AUDIO] running clock frozen; one bounded recovery');
+  void recoverFrozenAudio(ctx);
+ }
+});
+async function recoverFrozenAudio(ctx){
+ const token=++audioRecoveryEpoch;
+ const stillCurrent=()=>token===audioRecoveryEpoch&&ctx===audioContext&&
+  !document.hidden&&!audioInterruption.interrupted&&
+  session?.status==='running'&&phaseNow().type!=='done';
+ if(!stillCurrent())return;
+ const ok=await pulseStalledContext(ctx,{
+  isCurrent:stillCurrent,timeoutMs:900,settleMs:420
+ });
+ if(!stillCurrent())return;
+ audioClockNeedsGesture=!ok;
+ showAudioRecovery(!ok);
+ console.warn('[RT AUDIO] clock recovery',ok?'PASS':'NEEDS USER TAP');
+}
 function endWebBackgroundReturn(){
  if(!isPreview||audioMode!=='web'||document.hidden||audioInterruption.interrupted)return;
  if(!session||session.status!=='running'||phaseNow().type==='done'){
@@ -210,6 +241,7 @@ function endWebBackgroundReturn(){
  }
  if(!webWasInterrupted&&audioContext?.state==='running')return;
  webWasInterrupted=false;
+ audioClockWatchdog.resetEpoch();
  const token=++audioRecoveryEpoch;
  let finished=false;
  // If WebKit cannot resume without a user gesture, show a small recovery tap.
@@ -228,6 +260,12 @@ function endWebBackgroundReturn(){
 window.addEventListener('focus',endWebBackgroundReturn);
 el.audioRecover?.addEventListener('click',()=>{
   if(document.hidden)return;
+  if(audioClockNeedsGesture&&audioContext){
+   stopActiveAudio({fadeMs:0});
+   webRetirement.retire(); // New context only within the direct user tap.
+   audioClockWatchdog.resetEpoch();
+   audioClockNeedsGesture=false;
+  }
   const token=++audioRecoveryEpoch;
   void unlockAudio().then(ok=>{
     if(token===audioRecoveryEpoch&&!document.hidden)showAudioRecovery(!ok);
@@ -434,6 +472,9 @@ function startPause(){
     stopActiveAudio({preserveMix:keepForegroundMix()});
     firstClackMeasured=false;
     if(cueLatencyLabel)cueLatencyLabel.textContent='Первый щелчок: задержка ещё не измерена';
+    if(audioClockNeedsGesture&&audioContext){
+     webRetirement.retire();audioClockWatchdog.resetEpoch();audioClockNeedsGesture=false;
+    }
     const ready=unlockAudio();
     config=readConfig();updateInputs(config);
     session={status:'running',config,elapsedBeforeMs:0,resumedAt:Date.now()};
@@ -521,5 +562,5 @@ window.addEventListener('pagehide',save);
 updateInputs(config);restore();draw({notify:false});
 // A force-quit can restore a running countdown without an unlocked context.
 if(session?.status==='running'&&audioMode==='web')showAudioRecovery(true);
-setInterval(()=>{if(!document.hidden)draw({notify:true});},100);
+setInterval(()=>{if(!document.hidden){draw({notify:true});audioClockWatchdog.sample();}},100);
 if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
