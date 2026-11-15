@@ -141,7 +141,7 @@ test('background switching preserves decoded buffers and returns to Web Audio cu
   time(base+50020);tick();
   const clacks=played.filter(p=>p.path?.includes('woodclack-single.mp3'));
   assert.equal(clacks.length,2,'10-second double remains audible after restoring audio');
-  assert(Math.abs(clacks[1].at-clacks[0].at-.145)<1e-8,'145ms spacing');
+  assert(Math.abs(clacks[1].at-clacks[0].at-.478)<1e-8,'478ms spacing');
  });
 });
 
@@ -164,7 +164,7 @@ test('blocked foreground resume shows a recovery button; one user tap revives so
  });
 });
 
-test('145ms HTML fallback, quieter WebAudio buttons, stable UI and new offline cache',()=>{
+test('478ms HTML fallback, quieter WebAudio buttons, stable UI and new offline cache',()=>{
  const htmlAudioTasks=[],hits=[];
  const html=createHtmlAudioController({
   makeAudio:name=>({paused:true,currentTime:0,load(){},pause(){},play(){hits.push(name);return Promise.resolve();}}),
@@ -173,16 +173,16 @@ test('145ms HTML fallback, quieter WebAudio buttons, stable UI and new offline c
   schedule:(fn,ms)=>{htmlAudioTasks.push({fn,ms});return htmlAudioTasks.at(-1);},unschedule:()=>{}
  });
  html.play('ten-double');
- assert.equal(htmlAudioTasks[0].ms,145);
+ assert.equal(htmlAudioTasks[0].ms,478);
  assert.deepEqual(hits,['clack']);
  htmlAudioTasks[0].fn();
  assert.deepEqual(hits,['clack','clack']);
  const app=appSource(),htmlPage=source('index.html'),sw=source('sw.js');
- assert(app.includes("volume:kind==='button'?.216:kind==='clack'?.96:.9"));
- assert(app.includes("type==='ten-double'?[0,.145]"));
- assert(htmlPage.includes('ВЕРСИЯ · v0.8.18'));
+ assert(app.includes("volume:kind==='button'?.1944:kind==='clack'?.96:.9"));
+ assert(app.includes("type==='ten-double'?[0,.478]"));
+ assert(htmlPage.includes('미하일 0.8.19.1'));
  assert(htmlPage.includes('id="audioRecoveryButton"'));
- assert(sw.includes("round-timer-shell-v0.8.18"));
+ assert(sw.includes("round-timer-shell-v0.8.19.1"));
  assert(!htmlPage.includes('ТЕСТОВАЯ ВЕРСИЯ'));
 });
 

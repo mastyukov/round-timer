@@ -4,13 +4,13 @@ import {readFileSync} from 'node:fs';
 const root=path=>new URL('../'+path,import.meta.url);
 const read=path=>readFileSync(root(path),'utf8');
 
-test('publication checks v0.8.18 and all approved audio/credit markers',()=>{
+test('publication checks v0.8.19.1 and all approved audio/credit markers',()=>{
  const wf=read('.github/workflows/publish-pages.yml');
- assert(wf.includes('Verify exact approved v0.8.18 release'));
- assert(wf.includes("round-timer-shell-v0.8.18"));
- assert(wf.includes("미하일 ВЕРСИЯ · v0.8.18"));
- assert(wf.includes("volume:kind==='button'?.216:kind==='clack'?.96:.9"));
- assert(wf.includes("type==='ten-double'?[0,.145]"));
+ assert(wf.includes('Verify exact approved v0.8.19.1 release'));
+ assert(wf.includes("round-timer-shell-v0.8.19.1"));
+ assert(wf.includes("미하일 0.8.19.1"));
+ assert(wf.includes("volume:kind==='button'?.1944:kind==='clack'?.96:.9"));
+ assert(wf.includes("type==='ten-double'?[0,.478]"));
  assert(wf.includes("cueForPhaseTransition(phase)"));
  assert(!wf.includes('v0.8.17'));
 });
@@ -25,7 +25,7 @@ test('GitHub Pages still deploys only site/ from FINAL main after verify',()=>{
 });
 test('FAST CI release cache version updated but tests retained',()=>{
  const wf=read('.github/workflows/ci.yml');
- assert(wf.includes('round-timer-shell-v0.8.18'));
+ assert(wf.includes('round-timer-shell-v0.8.19.1'));
  assert(wf.includes('node --test tests/*.test.mjs'));
  assert(wf.includes("python3 -m unittest discover -s tests -p 'test_*.py'"));
 });
@@ -36,9 +36,9 @@ test('historic v0.8.17 release gate is limited to its own branch',()=>{
  assert(wf.includes('round-timer-shell-v0.8.17'));
 });
 test('new release note explicitly retains stable v0.8.15 rollback',()=>{
- const doc=read('project/releases/v0.8.18-release.md');
+ const doc=read('project/releases/v0.8.19.1-release.md');
  assert(doc.includes('bfa13c8aabb1fd49b042c58ce130d4abf0ed9499'));
- assert(doc.includes('0.216'));
- assert(doc.includes('145 ms'));
+ assert(doc.includes('0.1944'));
+ assert(doc.includes('478 ms'));
  assert(doc.includes('intermittent audio output delay'));
 });

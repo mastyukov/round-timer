@@ -26,7 +26,7 @@ test('app routes rest to start sample and done to original end sample',()=>{
  assert(app.includes('if(cue)sound(cue);'));
  assert(!app.includes("else if(phase.type==='rest')sound('end')"));
 });
-test('two single wooden clacks have 145ms spacing in both engines',()=>{
+test('two single wooden clacks have 478ms spacing in both engines',()=>{
  const tasks=[],hits=[];
  const a=createHtmlAudioController({
   makeAudio:n=>({paused:true,currentTime:0,load(){},pause(){this.paused=true;},play(){this.paused=false;hits.push(n);return Promise.resolve();}}),
@@ -35,21 +35,21 @@ test('two single wooden clacks have 145ms spacing in both engines',()=>{
  });
  a.play('ten-double');
  assert.deepEqual(hits,['single']);
- assert.equal(tasks[0].ms,145);
+ assert.equal(tasks[0].ms,478);
  tasks[0].fn();
  assert.deepEqual(hits,['single','single']);
- assert(src('app.mjs').includes("type==='ten-double'?[0,.145]"));
+ assert(src('app.mjs').includes("type==='ten-double'?[0,.478]"));
 });
-test('button gain equals 30% of original 0.72; other sample gains unchanged',()=>{
- const app=src('app.mjs'),gain=.216;
- assert(Math.abs(gain/.72-.30)<1e-12);
- assert(app.includes("volume:kind==='button'?.216:kind==='clack'?.96:.9"));
+test('button gain equals 27% of original 0.72; other sample gains unchanged',()=>{
+ const app=src('app.mjs'),gain=.1944;
+ assert(Math.abs(gain/.72-.27)<1e-12);
+ assert(app.includes("volume:kind==='button'?.1944:kind==='clack'?.96:.9"));
 });
 test('Korean text precedes version; offline shell and round layout retained',()=>{
  const html=src('index.html'),sw=src('sw.js');
- assert(html.includes('미하일 ВЕРСИЯ · v0.8.18'));
- assert(html.includes('name="round-timer-version" content="v0.8.18"'));
- assert(sw.includes('round-timer-shell-v0.8.18'));
+ assert(html.includes('미하일 0.8.19.1'));
+ assert(html.includes('name="round-timer-version" content="v0.8.19.1"'));
+ assert(sw.includes('round-timer-shell-v0.8.19.1'));
  assert(html.includes('id="roundCurrent">1'));
 });
 test('intermittent iOS background sound issue remains protected but not claimed fixed',()=>{
