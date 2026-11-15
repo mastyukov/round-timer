@@ -21,6 +21,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - name: Verify static application
         run: |
           test -s site/index.html
@@ -31,6 +37,7 @@ jobs:
           node --check site/app.mjs
           node --check site/engine.mjs
           node --check site/audio-guard.mjs
+          node --check site/audio-clock-watchdog.mjs
           node --check site/html-audio.mjs
           node --check site/audio-duck.mjs
           node --check site/web-audio-retire.mjs
@@ -55,6 +62,6 @@ jobs:
           m = json.loads(Path('site/manifest.webmanifest').read_text())
           assert m['display'] == 'standalone'
           assert m['start_url'] == './'
-          assert 'round-timer-shell-v0.8.18' in Path('site/sw.js').read_text()
+          assert 'round-timer-shell-v0.8.19.1' in Path('site/sw.js').read_text()
           print('PWA baseline checks: PASS')
           PY
