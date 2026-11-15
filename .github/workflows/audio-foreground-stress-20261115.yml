@@ -1,0 +1,31 @@
+name: APP-001 Audio Foreground Stress Investigation — isolated / no deploy
+on:
+  push:
+    branches: [qa/round-timer-foreground-stress-20261115]
+    paths:
+      - 'tests/audio-foreground-stress-20261115.test.mjs'
+      - '.github/workflows/audio-foreground-stress-20261115.yml'
+permissions:
+  contents: read
+jobs:
+  synthetic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+      - name: Node 26 syntax and synthetic audio lifecycle stress
+        run: |
+          set -euo pipefail
+          node --version
+          node --check site/audio-guard.mjs
+          node --check tests/audio-foreground-stress-20261115.test.mjs
+          node --test tests/audio-foreground-stress-20261115.test.mjs
+      - name: Assert production app remains byte-for-byte untouched in this pilot
+        run: |
+          git diff --quiet HEAD^ HEAD -- site/
+          git diff --quiet HEAD^ HEAD -- .github/workflows/publish-pages.yml
