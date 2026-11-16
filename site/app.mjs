@@ -4,7 +4,7 @@ import {createHtmlAudioController} from './html-audio.mjs';
 import {createWebAudioRetirement} from './web-audio-retire.mjs';
 import {createAudioDucking} from './audio-duck.mjs';
 import {createAudioClockWatchdog,pulseStalledContext} from './audio-clock-watchdog.mjs';
-const DIAGNOSTICS_VERSION='0.8.19.1';
+const DIAGNOSTICS_VERSION='0.8.19.2';
 const diagnosticSender=createDiagnosticSender({
   endpoint:productionDiagnosticEndpoint(globalThis.location,'https://round-timer-error-receiver.mastyukov.workers.dev/v1/error')
 });
@@ -88,6 +88,8 @@ const SOUND_PATHS=isPreview?{
 }:{start:'./sounds/gong-start.mp3',end:'./sounds/gong-end.mp3',clack:'./sounds/woodclack.mp3'};
 const soundBuffers={};
 let soundsLoading=null;
+let audioGestureSeen=false;
+let buttonCueEpoch=0;
 let activeSounds=createActiveSoundController();
 const webRetirement=createWebAudioRetirement({
   getContext:()=>audioContext,
@@ -158,13 +160,12 @@ function preloadSounds(){
  }));return soundsLoading;
 }
 function sound(type){
- if(document.hidden||audioInterruption.interrupted)return;
- if(audioMode==='html' && htmlSounds){
-   sessionMix.begin(); // Retain iOS mix through foreground PAUSE/RESET, not per cue.
-   htmlSounds.play(type);
-   return;
+ if(document.hidden||audioInterruption.interrupted)return false;
+ if(audioMode==='html'&&htmlSounds){
+   sessionMix.begin();
+   return htmlSounds.play(type);
  }
- if(!audioContext||audioContext.state!=='running')return;
+ if(!audioContext||audioContext.state!=='running')return false;
  const kind=type==='start'?'start':(type==='end'||type==='done')?'end':(isPreview&&type==='ten-double')?'clack':(isPreview&&type==='button')?'button':'clack';
  const sample=soundBuffers[kind];
  if(!sample){
@@ -172,13 +173,19 @@ function sound(type){
    if(type==='start'&&loading&&session)delayedStartGong.schedule(loading,{
      sessionRef:session,phaseKey:phaseNow().key
    });
-   return;
+   return false;
  }
  const offsets=isPreview&&type==='ten-double'?[0,.478]:type==='slow-double'?[0,.25]:type==='double'?[0,.155]:[0];
+ let played=false;
  for(const offset of offsets){
-   try {activeSounds.play({context:audioContext,buffer:sample,offset,volume:kind==='button'?.1944:kind==='clack'?.96:.9,category:kind==='button'?'button':'cue'});}
-   catch(_){void diagnosticSender.report({event:'audio_failure',code:'AUDIO_PLAY_REJECTED',component:'audio',version:DIAGNOSTICS_VERSION});}
+   try{
+     activeSounds.play({context:audioContext,buffer:sample,offset,volume:kind==='button'?.1944:kind==='clack'?.96:.9,category:kind==='button'?'button':'cue'});
+     played=true;
+   }catch(_){
+     void diagnosticSender.report({event:'audio_failure',code:'AUDIO_PLAY_REJECTED',component:'audio',version:DIAGNOSTICS_VERSION});
+   }
  }
+ return played;
 }
 // Foreground PAUSE/RESET should not switch Safari from transient back to
 // auto, since this interrupts other apps' background music on the iPhone.
@@ -211,9 +218,10 @@ const audioInterruption=createAudioInterruptionGuard({
 // while its audio rendering clock no longer advances. Never replay past cues.
 const audioClockWatchdog=createAudioClockWatchdog({
  getContext:()=>audioContext,
- isEligible:()=>isPreview&&audioMode==='web'&&!document.hidden&&
-  !audioInterruption.interrupted&&session?.status==='running'&&
-  phaseNow().type!=='done',
+ // iOS can freeze the audio clock even if the workout was never started.
+ isEligible:()=>isPreview&&audioMode==='web'&&audioGestureSeen&&
+  !document.hidden&&!audioInterruption.interrupted&&
+  !audioClockNeedsGesture&&!!audioContext,
  onStall:ctx=>{
   if(ctx!==audioContext)return;
   console.warn('[RT AUDIO] running clock frozen; one bounded recovery');
@@ -223,8 +231,7 @@ const audioClockWatchdog=createAudioClockWatchdog({
 async function recoverFrozenAudio(ctx){
  const token=++audioRecoveryEpoch;
  const stillCurrent=()=>token===audioRecoveryEpoch&&ctx===audioContext&&
-  !document.hidden&&!audioInterruption.interrupted&&
-  session?.status==='running'&&phaseNow().type!=='done';
+  !document.hidden&&!audioInterruption.interrupted&&audioGestureSeen;
  if(!stillCurrent())return;
  const ok=await pulseStalledContext(ctx,{
   isCurrent:stillCurrent,timeoutMs:900,settleMs:420
@@ -236,21 +243,19 @@ async function recoverFrozenAudio(ctx){
 }
 function endWebBackgroundReturn(){
  if(!isPreview||audioMode!=='web'||document.hidden||audioInterruption.interrupted)return;
- if(!session||session.status!=='running'||phaseNow().type==='done'){
-   webWasInterrupted=false;showAudioRecovery(false);return;
- }
+ // No need to unlock a site the user has never interacted with.
+ if(!audioGestureSeen)return;
  if(!webWasInterrupted&&audioContext?.state==='running')return;
  webWasInterrupted=false;
  audioClockWatchdog.resetEpoch();
  const token=++audioRecoveryEpoch;
  let finished=false;
- // If WebKit cannot resume without a user gesture, show a small recovery tap.
  const timeout=setTimeout(()=>{
    if(!finished&&token===audioRecoveryEpoch&&!document.hidden)showAudioRecovery(true);
  },1500);
  void unlockAudio().then(ok=>{
    finished=true;clearTimeout(timeout);
-   if(token!==audioRecoveryEpoch||document.hidden||!session||session.status!=='running')return;
+   if(token!==audioRecoveryEpoch||document.hidden)return;
    showAudioRecovery(!ok);
  }).catch(()=>{
    finished=true;clearTimeout(timeout);
@@ -464,6 +469,7 @@ function draw({notify=true}={}) {
 }
 function startPause(){
   if(el.settings.open)return false;
+  audioGestureSeen=true;
   let startupCuePlayed=false;
   // Every button action invalidates delayed initial gong requests.
   delayedStartGong.invalidate();
@@ -497,15 +503,25 @@ function startPause(){
 function reset(){if(el.settings.open)return;showAudioRecovery(false);++audioRecoveryEpoch;stopActiveAudio({preserveButton:isPreview,preserveMix:keepForegroundMix()});session=null;lastPhase=null;lastCuePhase=null;config=readConfig();save();releaseScreenOn();draw({notify:false});}
 function buttonSound(){
  if(!isPreview||document.hidden||audioInterruption.interrupted)return false;
+ audioGestureSeen=true;
+ const request=++buttonCueEpoch;
  if(audioMode==='html'&&htmlSounds){
    sessionMix.begin();
    return htmlSounds.playButton();
  }
- // Unlock Web Audio inside the actual pointer gesture. The very first tap
- // may still be silent until decoding completes; never play it back late.
- if(!audioContext||audioContext.state!=='running')unlockAudio();
- sound('button');
- return true;
+ // Resume in the direct pointer gesture, using previously decoded assets.
+ const ready=(!audioContext||audioContext.state!=='running'||!soundBuffers.button)
+   ?unlockAudio():Promise.resolve(true);
+ if(sound('button'))return true;
+ const pressedAt=Date.now();
+ // Do not play a previous button press after a noticeable delay.
+ void Promise.resolve(ready).then(ok=>{
+   const age=Date.now()-pressedAt;
+   if(ok&&request===buttonCueEpoch&&age>=0&&age<=180&&
+      !document.hidden&&!audioInterruption.interrupted)
+     sound('button');
+ }).catch(()=>{});
+ return true; // Prevent a duplicate sound on the later click.
 }
 // Pointerdown plays the button sound in the direct iOS user gesture.
 // The later click performs the operation and does not play a duplicate.
@@ -537,6 +553,16 @@ el.settings.addEventListener('toggle',()=>{
  el.reset.disabled=!!el.settings.open;
  lastClockLayout='';requestAnimationFrame(()=>fitClock(true));
 });
+// Keep the close-button touch targeted as the settings overlay collapses.
+// Safari can otherwise send a subsequent synthetic touch to a native picker.
+el.closeSettings?.addEventListener('pointerdown',event=>{
+ if(event.isPrimary===false)return;
+ try{
+  if(Number.isFinite(event.pointerId))
+   el.closeSettings.setPointerCapture?.(event.pointerId);
+ }catch(_){}
+});
+el.closeSettings?.addEventListener('click',event=>event.stopPropagation?.());
 bindFastPress(el.closeSettings,()=>{el.settings.open=false;lastClockLayout='';requestAnimationFrame(()=>fitClock(true));});
 bindFastPress(el.settings.querySelector?.('summary'),()=>{});
 document.addEventListener('keydown',event=>{if(event.key==='Escape'&&el.settings.open)el.settings.open=false;});
@@ -560,6 +586,13 @@ window.addEventListener('pageshow',()=>{
 });
 window.addEventListener('pagehide',save);
 updateInputs(config);restore();draw({notify:false});
+// Fetch and decode sounds without playing. Safari will resume on a real tap.
+if(isPreview&&audioMode==='web'&&(window.AudioContext||window.webkitAudioContext)){
+ try{
+  audioContext ||= new (window.AudioContext||window.webkitAudioContext)();
+  void preloadSounds();
+ }catch(_){}
+}
 // A force-quit can restore a running countdown without an unlocked context.
 if(session?.status==='running'&&audioMode==='web')showAudioRecovery(true);
 setInterval(()=>{if(!document.hidden){draw({notify:true});audioClockWatchdog.sample();}},100);
