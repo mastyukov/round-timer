@@ -513,8 +513,16 @@ function buttonSound(){
  const ready=(!audioContext||audioContext.state!=='running'||!soundBuffers.button)
    ?unlockAudio():Promise.resolve(true);
  if(sound('button'))return true;
+ // CP17 experiment: issue the *approved original button MP3* through the
+ // already-preloaded HTML player on this same physical pointer gesture.
+ // Never queue a late WebAudio echo of this tap. WebKit may still delay the
+ // hardware output; validate sound/music behaviour on a real iPhone.
+ if(htmlSounds?.playButton()){
+   void Promise.resolve(ready).catch(()=>{});
+   return true;
+ }
  const pressedAt=Date.now();
- // Do not play a previous button press after a noticeable delay.
+ // If neither transport accepted the gesture, keep only a fresh WebAudio cue.
  void Promise.resolve(ready).then(ok=>{
    const age=Date.now()-pressedAt;
    if(ok&&request===buttonCueEpoch&&age>=0&&age<=180&&
