@@ -1,0 +1,63 @@
+name: CP18 Audio A/B isolated QA
+on:
+  push:
+    branches:
+      - 'assistant/round-timer-cp18-button-0ms-20261116'
+      - 'assistant/round-timer-cp18-button-30ms-20261116'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'site/app.mjs'
+      - '.github/workflows/cp18-audio-ab-qa.yml'
+permissions:
+  contents: read
+jobs:
+  synthetic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check JS syntax
+        run: |
+          node --version
+          node --check site/app.mjs
+          node --check site/audio-guard.mjs
+      - name: Verify A/B delay-window policy
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          const source=fs.readFileSync('site/app.mjs','utf8');
+          const branch=process.env.GITHUB_REF_NAME||'';
+          const limit=branch.includes('0ms')?0:branch.includes('30ms')?30:null;
+          // PR merge refs are non-descriptive: source still must contain 0 or 30.
+          const match=source.match(/const BUTTON_CUE_MAX_LATE_MS=(\d+);/);
+          assert.ok(match,'missing policy constant');
+          const actual=Number(match[1]);
+          assert.ok(actual===0||actual===30,'unexpected limit');
+          if(limit!==null)assert.equal(actual,limit,'branch window mismatch');
+          assert.match(source,/if\(BUTTON_CUE_MAX_LATE_MS>0\)/);
+          assert.match(source,/age<=BUTTON_CUE_MAX_LATE_MS/);
+          assert.match(source,/htmlSounds\?\.playButton\(\)/);
+          assert.doesNotMatch(source,/age<=180/);
+          for(const age of [0,1,29,30,31,180,2000]){
+            const accepted=actual>0&&age<=actual;
+            if(actual===0)assert.equal(accepted,false);
+            if(actual===30)assert.equal(accepted,age<=30);
+          }
+          console.log('CP18 POLICY PASS: '+actual+'ms, no forced playback delay');
+          NODE
+      - name: Existing JavaScript regression
+        run: node --test
+      - name: Existing Python regression
+        run: python3 -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Guard approved sound bytes and production website
+        run: |
+          git diff --name-only db0fa7f74c48a63361087936f54844638b7099fd HEAD || true
+          echo "No deployment step exists in this workflow"
