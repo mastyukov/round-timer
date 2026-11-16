@@ -513,14 +513,29 @@ function buttonSound(){
  const ready=(!audioContext||audioContext.state!=='running'||!soundBuffers.button)
    ?unlockAudio():Promise.resolve(true);
  if(sound('button'))return true;
+ // CP17 experiment: issue the *approved original button MP3* through the
+ // already-preloaded HTML player on this same physical pointer gesture.
+ // Never queue a late WebAudio echo of this tap. WebKit may still delay the
+ // hardware output; validate sound/music behaviour on a real iPhone.
+ if(htmlSounds?.playButton()){
+   void Promise.resolve(ready).catch(()=>{});
+   return true;
+ }
  const pressedAt=Date.now();
- // Do not play a previous button press after a noticeable delay.
- void Promise.resolve(ready).then(ok=>{
-   const age=Date.now()-pressedAt;
-   if(ok&&request===buttonCueEpoch&&age>=0&&age<=180&&
-      !document.hidden&&!audioInterruption.interrupted)
-     sound('button');
- }).catch(()=>{});
+ // CP18 A/B: reject any late replay outside the explicit freshness window.
+ // A = 0 ms (no deferred replay); B = 30 ms. This is NOT an audio output delay.
+ const BUTTON_CUE_MAX_LATE_MS=0;
+ if(BUTTON_CUE_MAX_LATE_MS>0){
+   void Promise.resolve(ready).then(ok=>{
+     const age=Date.now()-pressedAt;
+     if(ok&&request===buttonCueEpoch&&age>=0&&age<=BUTTON_CUE_MAX_LATE_MS&&
+        !document.hidden&&!audioInterruption.interrupted)
+       sound('button');
+   }).catch(()=>{});
+ }else{
+   // Do not leave an unhandled rejection from a previous unlock attempt.
+   void Promise.resolve(ready).catch(()=>{});
+ }
  return true; // Prevent a duplicate sound on the later click.
 }
 // Pointerdown plays the button sound in the direct iOS user gesture.
