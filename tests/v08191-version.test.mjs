@@ -6,7 +6,7 @@ test('visible build identity is unique and never confused with previous 0.8.19',
  const html=get('index.html');
  assert(html.includes('미하일 0.8.19.2</small>'));
  assert(!html.includes('미하일 0.8.19.1</small>'));
- assert(html.includes('name="round-timer-preview-build" content="v0.8.19.2"'));
+ assert(html.includes('name="round-timer-version" content="v0.8.19.2"'));
 });
 test('offline worker increments cache identity while preserving offline strategy and app shell',()=>{
  const sw=get('sw.js');
