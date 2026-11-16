@@ -1,0 +1,70 @@
+name: APP-001 FINAL 0.8.19.2 — Release QA (never deploy)
+on:
+  push:
+    branches: [release/round-timer-v08192-20261116]
+    paths:
+      - 'site/**'
+      - 'tests/**'
+      - 'project/releases/v0.8.19.2-release.md'
+      - '.github/workflows/release-v08192-qa.yml'
+      - '.github/workflows/ci.yml'
+      - '.github/workflows/publish-pages.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'tests/**'
+      - '.github/workflows/**'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Pin runtime and check exact release identity
+        run: |
+          set -euo pipefail
+          node --version
+          python --version
+          node -e "if(process.versions.node.split('.')[0]!=='26')process.exit(1)"
+          python -c "import sys;assert sys.version_info[:2]==(3,12)"
+          grep -Fq '미하일 0.8.19.2' site/index.html
+          grep -Fq 'round-timer-shell-v0.8.19.2' site/sw.js
+          grep -Fq "type==='ten-double'?[0,.478]" site/app.mjs
+          grep -Fq "volume:kind==='button'?.1944" site/app.mjs
+          grep -Fq 'audioGestureSeen' site/app.mjs
+          grep -Fq 'setPointerCapture?.(event.pointerId)' site/app.mjs
+      - name: Full JavaScript syntax and audio/cue regression
+        run: |
+          set -euo pipefail
+          for f in site/app.mjs site/engine.mjs site/audio-guard.mjs site/audio-clock-watchdog.mjs site/html-audio.mjs site/sw.js; do node --check "$f"; done
+          node --test tests/*.test.mjs
+      - name: Python diagnostics and privacy regression
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Original studio audio files 5/5 SHA-256 guard
+        run: |
+          node --input-type=module - <<'JS'
+          import {readFileSync} from 'node:fs';
+          import {createHash} from 'node:crypto';
+          const manifest=JSON.parse(readFileSync('project/releases/v0.8.15-studio-audio-manifest.json','utf8'));
+          if(manifest.files.length!==5)throw Error('Expected 5 approved MP3 samples');
+          for(const f of manifest.files){
+            const bytes=readFileSync('site/sounds/'+f.name);
+            if(bytes.length!==f.bytes||createHash('sha256').update(bytes).digest('hex')!==f.sha256)throw Error('MP3 changed: '+f.name);
+          }
+          console.log('Original MP3 5/5 PASS');
+          JS
+      - name: Verify exact repository and no independent QA deployment
+        run: |
+          test "$GITHUB_REPOSITORY" = 'mastyukov/round-timer'
+          test -f project/releases/v0.8.19.2-release.md

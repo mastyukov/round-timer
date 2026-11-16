@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   verify:
-    name: Verify exact approved v0.8.19.1 release
+    name: Verify exact approved v0.8.19.2 release
     runs-on: ubuntu-latest
     timeout-minutes: 7
     steps:
@@ -64,19 +64,23 @@ jobs:
           assert manifest['start_url']=='./'
           assert manifest['scope']=='./'
           assert 'diag_test' not in (folder/'app.mjs').read_text()
-          assert 'round-timer-shell-v0.8.19.1' in (folder/'sw.js').read_text()
+          assert 'round-timer-shell-v0.8.19.2' in (folder/'sw.js').read_text()
           assert 'const isPreview=true;' in (folder/'app.mjs').read_text()
           assert 'round-timer-version' in (folder/'index.html').read_text()
-          assert 'name="round-timer-version" content="v0.8.19.1"' in (folder/'index.html').read_text()
+          assert 'name="round-timer-version" content="v0.8.19.2"' in (folder/'index.html').read_text()
           assert "'./audio-clock-watchdog.mjs'" in (folder/'sw.js').read_text()
           assert 'audioClockWatchdog.sample()' in (folder/'app.mjs').read_text()
           assert 'pulseStalledContext(ctx,' in (folder/'app.mjs').read_text()
-          assert '미하일 0.8.19.1' in (folder/'index.html').read_text()
+          assert 'audioGestureSeen' in (folder/'app.mjs').read_text()
+          assert 'setPointerCapture?.(event.pointerId)' in (folder/'app.mjs').read_text()
+          assert 'age<=180' in (folder/'app.mjs').read_text()
+          assert '.settings-form label:nth-of-type(4) {margin-bottom:8px;}' in (folder/'styles.css').read_text()
+          assert '미하일 0.8.19.2' in (folder/'index.html').read_text()
           assert "volume:kind==='button'?.1944:kind==='clack'?.96:.9" in (folder/'app.mjs').read_text()
           assert "type==='ten-double'?[0,.478]" in (folder/'app.mjs').read_text()
           assert "cueForPhaseTransition(phase)" in (folder/'app.mjs').read_text()
           assert 'ТЕСТОВАЯ ВЕРСИЯ' not in (folder/'index.html').read_text()
-          print('PASS: exact approved v0.8.19.1 files and stable features')
+          print('PASS: exact approved v0.8.19.2 files and stable features')
           PY
 
   deploy:

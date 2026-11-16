@@ -19,6 +19,8 @@ permissions:
   contents: read
 jobs:
   verify:
+    # Historical v0.8.19.1 QA applies to its original source branch only.
+    if: github.event_name == 'push' || github.head_ref == 'release/round-timer-v08191-20261115'
     runs-on: ubuntu-24.04
     timeout-minutes: 12
     steps:

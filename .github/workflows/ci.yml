@@ -62,6 +62,6 @@ jobs:
           m = json.loads(Path('site/manifest.webmanifest').read_text())
           assert m['display'] == 'standalone'
           assert m['start_url'] == './'
-          assert 'round-timer-shell-v0.8.19.1' in Path('site/sw.js').read_text()
+          assert 'round-timer-shell-v0.8.19.2' in Path('site/sw.js').read_text()
           print('PWA baseline checks: PASS')
           PY
