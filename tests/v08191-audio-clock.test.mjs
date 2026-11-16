@@ -82,7 +82,7 @@ test('visibility loss invalidates in-flight recovery without creating another co
 });
 test('source unchanged until TEST-only integration; no MP3 or user data required',()=>{
  const sw=source('sw.js'),app=source('app.mjs');
- assert(sw.includes('round-timer-shell-v0.8.19.1'));
+ assert(sw.includes('round-timer-shell-v0.8.19.2'));
  assert(app.includes('DIAGNOSTICS_VERSION='));
  assert(app.includes('audioClockWatchdog.sample()'));
  assert(app.includes('미하ил')===false);
@@ -92,7 +92,7 @@ test('v0.8.19 TEST r478 matches measured reference rhythm at 10 seconds and pres
  assert(app.includes("type==='ten-double'?[0,.478]"));
  assert(app.includes("volume:kind==='button'?.1944:kind==='clack'?.96:.9"));
  assert(fallback.includes("},478);"));
- assert(html.includes('미하일 0.8.19.1'));
+ assert(html.includes('미하일 0.8.19.2'));
  assert(!html.includes('미하일 ВЕРСИЯ'));
  assert(html.includes('audioRecoveryButton'));
 });
