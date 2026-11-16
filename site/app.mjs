@@ -522,13 +522,20 @@ function buttonSound(){
    return true;
  }
  const pressedAt=Date.now();
- // If neither transport accepted the gesture, keep only a fresh WebAudio cue.
- void Promise.resolve(ready).then(ok=>{
-   const age=Date.now()-pressedAt;
-   if(ok&&request===buttonCueEpoch&&age>=0&&age<=180&&
-      !document.hidden&&!audioInterruption.interrupted)
-     sound('button');
- }).catch(()=>{});
+ // CP18 A/B: reject any late replay outside the explicit freshness window.
+ // A = 0 ms (no deferred replay); B = 30 ms. This is NOT an audio output delay.
+ const BUTTON_CUE_MAX_LATE_MS=30;
+ if(BUTTON_CUE_MAX_LATE_MS>0){
+   void Promise.resolve(ready).then(ok=>{
+     const age=Date.now()-pressedAt;
+     if(ok&&request===buttonCueEpoch&&age>=0&&age<=BUTTON_CUE_MAX_LATE_MS&&
+        !document.hidden&&!audioInterruption.interrupted)
+       sound('button');
+   }).catch(()=>{});
+ }else{
+   // Do not leave an unhandled rejection from a previous unlock attempt.
+   void Promise.resolve(ready).catch(()=>{});
+ }
  return true; // Prevent a duplicate sound on the later click.
 }
 // Pointerdown plays the button sound in the direct iOS user gesture.
