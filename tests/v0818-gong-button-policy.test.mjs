@@ -47,9 +47,9 @@ test('button gain equals 27% of original 0.72; other sample gains unchanged',()=
 });
 test('Korean text precedes version; offline shell and round layout retained',()=>{
  const html=src('index.html'),sw=src('sw.js');
- assert(html.includes('미하일 0.8.19.1'));
- assert(html.includes('name="round-timer-version" content="v0.8.19.1"'));
- assert(sw.includes('round-timer-shell-v0.8.19.1'));
+ assert(html.includes('미하일 0.8.19.2'));
+ assert(html.includes('name="round-timer-version" content="v0.8.19.2"'));
+ assert(sw.includes('round-timer-shell-v0.8.19.2'));
  assert(html.includes('id="roundCurrent">1'));
 });
 test('intermittent iOS background sound issue remains protected but not claimed fixed',()=>{
