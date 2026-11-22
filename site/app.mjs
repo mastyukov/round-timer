@@ -83,7 +83,7 @@ if(CP19F_UX)document.addEventListener('pointerdown',event=>{
 const byId=id=>document.getElementById(id);
 if(CP19){
  const label=document.querySelector?.('.preview-version');
- if(label)label.textContent=`미하일 ${CP19_VERSION} · TEST ${CP19.label}`;
+ if(label)label.textContent=PREVIEW_MAIN_HOME?'미하일 0.8.20.16':`미하일 ${CP19_VERSION} · TEST ${CP19.label}`;
 }else if(CP18_BUTTON_WINDOW_MS!==null){
  const label=document.querySelector?.('.preview-version');
  if(label)label.textContent=`미하일 0.8.19.3 · TEST ${CP18_BUTTON_WINDOW_MS} мс`;
@@ -138,7 +138,7 @@ let cp19WorkletBusy=false;
 function cp19Status(message){
  if(!CP19)return;
  const el=document.querySelector?.('.preview-version');
- if(el)el.textContent=`미하일 ${CP19_VERSION} · TEST ${CP19.label} · ${message}`;
+ if(el)el.textContent=PREVIEW_MAIN_HOME?'미하일 0.8.20.16':`미하일 ${CP19_VERSION} · TEST ${CP19.label} · ${message}`;
 }
 function cp19Gesture(event){
  if(!CP19||document.hidden||!soundEnabled||event?.target?.closest?.('#soundToggle'))return;

@@ -28,14 +28,14 @@ html.cp19f-ux .controls .secondary-button{
 
 /* OFF is a physically unlit graphite switch, not a red glowing alarm. */
 html.cp19f-ux #settings[open] .cp19f-audio-toggle[data-sound="off"]{
-  background:linear-gradient(180deg,#394550,#202a34 58%,#151d25);
-  border-color:#586572;
-  box-shadow:inset 0 3px 8px #071017b8,inset 0 -1px 2px #74808b38;
-  color:#adb9c4;
+  background:linear-gradient(180deg,#7a3645,#461d2b 62%,#30151d);
+  border-color:#74404b;
+  box-shadow:inset 0 3px 9px #15090dbd,inset 0 1px 2px #ad737b38;
+  color:#e3bac2;
   text-shadow:none;
 }
 html.cp19f-ux #settings[open] .cp19f-audio-toggle[data-sound="off"]::after{
-  background:linear-gradient(180deg,#b4bec6,#717e89);
+  background:linear-gradient(180deg,#b7a3a8,#8b777d);
   box-shadow:inset 0 1px 2px #ffffff5e,0 1px 3px #0008;
 }
 html.cp19f-ux #settings[open] .cp19f-audio-toggle[data-sound="on"]{
@@ -45,10 +45,23 @@ html.cp19f-ux #settings[open] .cp19f-audio-toggle[data-sound="on"]{
 /* ROUND is visual-only: no .clock, clock-frame, font or fit changes. */
 @media (orientation:landscape){
   html.cp19f-ux .round-line{
-    transform:translateY(clamp(15px,3.2vh,23px)) scale(1.25);
+    transform:translateY(clamp(20px,4.2vh,29px)) scale(1.33);
     transform-origin:center;
   }
 }
 @media (orientation:landscape) and (max-height:350px){
-  html.cp19f-ux .round-line{transform:translateY(9px) scale(1.14);}
+  html.cp19f-ux .round-line{transform:translateY(13px) scale(1.19);}
+}
+
+/* CP19-F / 0.8.20.17 pilot: freeze the modal horizontally, not the wheels vertically. */
+html.cp19f-ux #settings[open]{
+ overflow-x:hidden;
+ overflow-y:auto;
+ overscroll-behavior-x:none;
+ touch-action:pan-y;
+}
+html.cp19f-ux #settings[open] .settings-form{min-width:0;max-width:100%;}
+html.cp19f-ux #settings[open] .preview-version{
+ display:block;width:100%;max-width:100%;min-width:0;
+ overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
