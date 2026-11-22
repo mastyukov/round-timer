@@ -1,0 +1,21 @@
+/* 0.8.20.15 Apple Music ambient PILOT.
+ * Round heading paint-only; countdown glyph metrics, clock-fit and timer untouched.
+ * Inherited approved Graphite Control Deck and Prewarm controls stay unchanged. */
+@media (orientation:landscape){
+ html.cp19f-ux .round-line{
+  transform:translateY(clamp(12px,2.7vh,19px)) scale(1.20);
+  transform-origin:center;
+ }
+}
+@media (orientation:landscape) and (max-height:350px){
+ html.cp19f-ux .round-line{
+  transform:translateY(7px) scale(1.10);
+ }
+}
+html.cp19f-ux .ambient-mix-status{
+ grid-column:1/-1;
+ color:#bad1df;
+ font-size:clamp(.65rem,2.6vw,.76rem);
+ line-height:1.28;
+ margin-top:-2px;
+}

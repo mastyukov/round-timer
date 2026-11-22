@@ -13,14 +13,16 @@ export function createHtmlAudioController({
   if (typeof makeAudio!=='function'||typeof isActive!=='function') {
     throw new TypeError('HTML audio controller requires makeAudio and isActive');
   }
+  // Priority at cold launch: request the short button sample first.
+  // This is a preload hint, not a promise of zero latency on iOS Safari.
   const elements={
+    button:paths.button?makeAudio(paths.button):null,
+    buttonAlt:paths.button?makeAudio(paths.button):null,
     start:makeAudio(paths.start),
     end:makeAudio(paths.end),
     clack1:makeAudio(paths.clack),
     clack2:makeAudio(paths.clack),
-    double:paths.double?makeAudio(paths.double):null,
-    button:paths.button?makeAudio(paths.button):null,
-    buttonAlt:paths.button?makeAudio(paths.button):null
+    double:paths.double?makeAudio(paths.double):null
   };
   for(const element of Object.values(elements).filter(Boolean)){
     element.preload='auto';

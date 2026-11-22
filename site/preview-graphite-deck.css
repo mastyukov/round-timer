@@ -1,0 +1,82 @@
+/* APP-001 TEST 0.8.20.13 — Graphite Control Deck.
+   Presentation only: freeze button sizes/positions, clock geometry, timer model,
+   original audio, active round settings, and accessibility focus.
+   Optically matched to Graphite Steel settings and skeuomorphic wheels. */
+html.cp19f-ux .controls .main-button,
+html.cp19f-ux .controls .secondary-button{
+ position:relative;
+ overflow:hidden;
+ isolation:isolate;
+ color:#f8fffb;
+ border-radius:inherit;
+ text-shadow:0 1px 2px #071a15ba,0 -1px 0 #02090571;
+ -webkit-tap-highlight-color:transparent;
+ transition:filter .10s ease, box-shadow .10s ease, transform .10s ease;
+}
+html.cp19f-ux .controls .main-button{
+ background:
+   linear-gradient(180deg,#b2f6d2 0%,#21c77b 5%,#0aaf67 24%,#08894f 54%,#07603e 86%,#034b31 100%);
+ border:1.5px solid #bbf4d6;
+ border-bottom:3px solid #125a3e;
+ box-shadow:inset 0 2px 2px #f0fffabb,inset 0 -3px 8px #063e2e8c,
+   0 2px 0 #162b25,0 5px 10px #00000080;
+}
+html.cp19f-ux .controls .main-button[data-control-state="pause"]{
+ background:
+   linear-gradient(180deg,#fff1bc 0%,#ffcc61 6%,#eda52c 28%,#bd761c 66%,#8d4e14 100%);
+ border:1.5px solid #ffdfa3;
+ border-bottom:3px solid #85420f;
+ box-shadow:inset 0 2px 2px #fff4d8c4,inset 0 -3px 8px #7f3e1599,
+   0 2px 0 #45311a,0 5px 10px #00000080;
+ color:#fff9ed;
+ text-shadow:0 1px 2px #542900cc;
+}
+html.cp19f-ux .controls .secondary-button{
+ background:
+   linear-gradient(180deg,#9aa8b7 0%,#667589 7%,#475768 28%,#354353 65%,#263340 100%);
+ border:1.5px solid #b2c2d0;
+ border-bottom:3px solid #202f3d;
+ box-shadow:inset 0 2px 2px #eef6ff8c,inset 0 -3px 6px #101c29a6,
+   0 2px 0 #14212c,0 5px 10px #00000080;
+ text-shadow:0 1px 2px #05101bcc;
+}
+html.cp19f-ux .controls .secondary-button::before{
+ content:"";position:absolute;left:8px;top:21%;bottom:21%;width:3px;
+ border-radius:4px;
+ background:linear-gradient(180deg,#ff9ca2,#e33d4b 52%,#af1c2d);
+ box-shadow:0 0 4px #d03b4b8c;
+ pointer-events:none;
+}
+html.cp19f-ux #settings:not([open]){
+ background:linear-gradient(180deg,#758292 0%,#42505f 6%,#303b49 46%,#212c38 100%);
+ border:1.5px solid #aebac7;
+ border-bottom:3px solid #202a35;
+ box-shadow:inset 0 2px 2px #eaf3ff80,inset 0 -3px 7px #141c28a6,
+   0 2px 0 #111e29,0 5px 10px #00000080;
+}
+html.cp19f-ux #settings:not([open]) summary{
+ color:#f2f6fa;
+ text-shadow:0 1px 2px #030c15;
+}
+html.cp19f-ux #settings:not([open]) .chevron{
+ color:#d5e0eb;
+}
+html.cp19f-ux .controls .main-button:active,
+html.cp19f-ux .controls .secondary-button:active{
+ transform:translateY(1px) scale(.99);
+ filter:brightness(.98);
+ box-shadow:inset 0 3px 8px #101823a3,0 1px 2px #0009;
+}
+html.cp19f-ux #settings:not([open]):active{
+ filter:brightness(.98);
+ box-shadow:inset 0 3px 8px #101823aa,0 1px 2px #0008;
+}
+html.cp19f-ux .controls button:disabled{opacity:.55;}
+html.cp19f-ux .controls button:focus-visible,
+html.cp19f-ux #settings:not([open]) summary:focus-visible{
+ outline:3px solid #d5f3ff;outline-offset:3px;
+}
+@media (prefers-reduced-motion:reduce){
+ html.cp19f-ux .controls .main-button,
+ html.cp19f-ux .controls .secondary-button{transition:none;}
+}

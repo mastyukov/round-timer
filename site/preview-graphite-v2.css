@@ -1,0 +1,29 @@
+/* APP-001 Graphite A2: selected black theme, wheel grid alignment and round display only.
+   DO NOT MODIFY any clock font-size, fit algorithm, frame dimensions or sound. */
+
+/* Every wheel sits at the same bottom edge of its 2-column form grid row.
+   The 'Количество раундов' title is two lines; the other top label
+   gets the same available empty space, avoiding the displaced wheel. */
+html.cp19f-ux #settings[open] .settings-form{
+ align-items:stretch;
+}
+html.cp19f-ux #settings[open] .settings-form > label:nth-of-type(-n+4){
+ align-self:stretch;
+}
+html.cp19f-ux #settings[open] .settings-form > label:nth-of-type(-n+4) > .cp19f-inline-wheel{
+ margin-top:auto;
+}
+
+/* VISUAL adjustment only. Transform doesn't change layout height,
+   clock-frame dimensions, fontSize or scale in preview-variants-clock-fit. */
+@media (orientation:landscape){
+ html.cp19f-ux .round-line{
+  transform:translateY(clamp(5px,1.4vh,9px)) scale(1.055);
+  transform-origin:center;
+ }
+}
+@media (orientation:landscape) and (max-height:350px){
+ html.cp19f-ux .round-line{
+  transform:translateY(3px) scale(1.03);
+ }
+}

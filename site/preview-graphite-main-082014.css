@@ -1,0 +1,14 @@
+/* APP-001 TEST 0.8.20.14: owner-approved Graphite landscape heading polish.
+   Visual-only. The countdown clock, its font-size, fit algorithm, frame
+   dimensions, selected wheel sizing and sound logic are frozen. */
+@media (orientation:landscape){
+ html.cp19f-ux .round-line{
+  transform:translateY(clamp(9px,2.1vh,14px)) scale(1.10);
+  transform-origin:center;
+ }
+}
+@media (orientation:landscape) and (max-height:350px){
+ html.cp19f-ux .round-line{
+  transform:translateY(5px) scale(1.06);
+ }
+}

@@ -1,90 +1,49 @@
-name: Publish approved Round Timer to permanent GitHub Pages
+name: Publish approved Round Timer FINAL v0.8.20.16 to GitHub Pages
 on:
   push:
     branches: [main]
     paths:
       - 'site/**'
-      - 'tests/**'
+      - 'tests/final-v082016.test.mjs'
       - '.github/workflows/publish-pages.yml'
   workflow_dispatch:
-
 permissions:
   contents: read
   pages: write
   id-token: write
-
 concurrency:
   group: round-timer-production-pages
   cancel-in-progress: false
 
 jobs:
   verify:
-    name: Verify exact approved v0.8.19.2 release
+    name: Verify FINAL v0.8.20.16 exact assets and source
     runs-on: ubuntu-latest
-    timeout-minutes: 7
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '26'
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Verify no extra user-facing data
+      - name: Validate public artifact scope and syntax
         run: |
           set -euo pipefail
-          test -f site/index.html
-          test -f site/sw.js
+          test -s site/index.html
+          test -s site/sw.js
           test -f site/.nojekyll
-          test -f site/privacy.html
+          test -s site/privacy.html
           test ! -d site/tests
+          test ! -d site/qa
           test ! -d site/receiver
           test ! -d site/project
-          node --check site/app.mjs
-          node --check site/engine.mjs
-          node --check site/audio-guard.mjs
-          node --check site/audio-clock-watchdog.mjs
-          node --check site/html-audio.mjs
-          node --check site/audio-duck.mjs
-          node --check site/web-audio-retire.mjs
-          node --check site/sw.js
-          for f in studio-gong-start studio-gong-end woodclack-single woodclack-double button; do test -s "site/sounds/$f.mp3"; done
-          node --check site/diagnostics/schema.mjs
-          node --check site/diagnostics/sender.mjs
-          node --test tests/*.test.mjs
-      - name: Validate publish manifest and no synthetic trigger
+          for f in site/*.mjs site/diagnostics/*.mjs site/sw.js; do node --check "$f"; done
+      - name: Verify pinned 0.8.20.16 timer, ambient/Prewarm, offline, visuals and all original sound hashes
         run: |
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
-          folder=Path('site')
-          manifest=json.loads((folder/'manifest.webmanifest').read_text())
-          assert manifest['name']=='Раунд таймер'
-          assert manifest['short_name']=='Раунд таймер'
-          assert manifest['start_url']=='./'
-          assert manifest['scope']=='./'
-          assert 'diag_test' not in (folder/'app.mjs').read_text()
-          assert 'round-timer-shell-v0.8.19.2' in (folder/'sw.js').read_text()
-          assert 'const isPreview=true;' in (folder/'app.mjs').read_text()
-          assert 'round-timer-version' in (folder/'index.html').read_text()
-          assert 'name="round-timer-version" content="v0.8.19.2"' in (folder/'index.html').read_text()
-          assert "'./audio-clock-watchdog.mjs'" in (folder/'sw.js').read_text()
-          assert 'audioClockWatchdog.sample()' in (folder/'app.mjs').read_text()
-          assert 'pulseStalledContext(ctx,' in (folder/'app.mjs').read_text()
-          assert 'audioGestureSeen' in (folder/'app.mjs').read_text()
-          assert 'setPointerCapture?.(event.pointerId)' in (folder/'app.mjs').read_text()
-          assert 'age<=180' in (folder/'app.mjs').read_text()
-          assert '.settings-form label:nth-of-type(4) {margin-bottom:8px;}' in (folder/'styles.css').read_text()
-          assert '미하일 0.8.19.2' in (folder/'index.html').read_text()
-          assert "volume:kind==='button'?.1944:kind==='clack'?.96:.9" in (folder/'app.mjs').read_text()
-          assert "type==='ten-double'?[0,.478]" in (folder/'app.mjs').read_text()
-          assert "cueForPhaseTransition(phase)" in (folder/'app.mjs').read_text()
-          assert 'ТЕСТОВАЯ ВЕРСИЯ' not in (folder/'index.html').read_text()
-          print('PASS: exact approved v0.8.19.2 files and stable features')
-          PY
+          set -euo pipefail
+          node --test tests/final-v082016.test.mjs tests/timer-model.test.mjs tests/diagnostic-schema.test.mjs tests/diagnostics-sender.test.mjs
 
   deploy:
-    name: Deploy stable user site (site/ only)
+    name: Deploy production site/ ONLY after exact QA PASS
     if: ${{ github.ref == 'refs/heads/main' && github.repository == 'mastyukov/round-timer' }}
     needs: [verify]
     runs-on: ubuntu-latest
@@ -99,6 +58,6 @@ jobs:
         uses: actions/upload-pages-artifact@v4
         with:
           path: site
-      - name: Deploy approved artifacts
+      - name: Deploy approved assets
         id: deployment
         uses: actions/deploy-pages@v4

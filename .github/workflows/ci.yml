@@ -1,24 +1,21 @@
-name: FAST LANE CI (checks only; never deploys)
+name: FAST LANE CI — Round Timer FINAL v0.8.20.16 (checks only)
 on:
   push:
     branches:
-      - setup/fast-lane-v1.3
       - main
-      - fix/round-timer-audio-lifecycle-v0816-20261114
-      - release/round-timer-v0.8.15-rc19-20261112
-      - setup/diagnostic-monitor-3d
       - 'assistant/round-timer/**'
     paths:
-      - 'tests/**'
       - 'site/**'
-      - 'diagnostics/**'
+      - 'tests/**'
       - '.github/workflows/ci.yml'
+      - '.github/workflows/publish-pages.yml'
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
-  test:
+  verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -27,41 +24,19 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Verify static application
+      - name: Validate release syntax and frozen public scope
         run: |
-          test -s site/index.html
-          test -s site/sw.js
-          test -s site/sounds/gong-start.mp3
-          test -s site/sounds/gong-end.mp3
-          test -s site/sounds/woodclack.mp3
-          node --check site/app.mjs
-          node --check site/engine.mjs
-          node --check site/audio-guard.mjs
-          node --check site/audio-clock-watchdog.mjs
-          node --check site/html-audio.mjs
-          node --check site/audio-duck.mjs
-          node --check site/web-audio-retire.mjs
-          node --check site/sw.js
-          test -s site/sounds/studio-gong-start.mp3
-          test -s site/sounds/studio-gong-end.mp3
-          test -s site/sounds/woodclack-single.mp3
-          test -s site/sounds/woodclack-double.mp3
-          test -s site/sounds/button.mp3
-          node --check diagnostics/schema.mjs
-          node --check site/diagnostics/schema.mjs
-          node --check site/diagnostics/sender.mjs
-      - name: Unit tests (timer and privacy-safe diagnostic contract)
+          set -euo pipefail
+          for f in site/*.mjs site/diagnostics/*.mjs site/sw.js; do node --check "$f"; done
+          test -f site/.nojekyll
+          test ! -d site/qa
+          test ! -d site/tests
+          test ! -d site/project
+          test ! -d site/receiver
+      - name: Final exact release, audio bytes, offline graph and timer model
         run: |
-          node --test tests/*.test.mjs
+          set -euo pipefail
+          node --test tests/final-v082016.test.mjs tests/timer-model.test.mjs tests/diagnostic-schema.test.mjs tests/diagnostics-sender.test.mjs
+      - name: Keep safe Python diagnostics regression
+        run: |
           python3 -m unittest discover -s tests -p 'test_*.py' -v
-      - name: Validate PWA manifest
-        run: |
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
-          m = json.loads(Path('site/manifest.webmanifest').read_text())
-          assert m['display'] == 'standalone'
-          assert m['start_url'] == './'
-          assert 'round-timer-shell-v0.8.19.2' in Path('site/sw.js').read_text()
-          print('PWA baseline checks: PASS')
-          PY

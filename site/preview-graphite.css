@@ -1,0 +1,50 @@
+/* APP-001 TEST A — Graphite Steel. Style-only; wheel scroll/audio/timing untouched. */
+html.cp19f-ux #settings[open]{
+ color:#f5f7fa;
+ border:2px solid #96a4b2;
+ border-radius:21px;
+ background:
+  repeating-linear-gradient(105deg,transparent 0px,transparent 3px,#ffffff05 4px,#00000008 5px),
+  linear-gradient(145deg,#424e5b 0%,#242d38 28%,#171f29 64%,#394550 100%);
+ box-shadow:
+  0 0 0 150vmax #050a10e8,
+  0 24px 65px #020508e6,
+  inset 0 1px 0 #f1f5f9a0,
+  inset 0 0 0 3px #1a232e,
+  inset 0 0 22px #080f18c9;
+}
+html.cp19f-ux #settings[open] summary{
+ color:#f7f9fc;
+ background:
+  linear-gradient(180deg,#7b8795 0%,#465260 12%,#303b47 50%,#222c38 100%);
+ border-bottom:2px solid #9faab7;
+ box-shadow:inset 0 2px 2px #ffffff42,inset 0 -4px 8px #111821a8,0 3px 8px #0104078a;
+ text-shadow:0 1px 2px #070d15;
+ letter-spacing:.016em;
+}
+html.cp19f-ux #settings[open] .chevron{color:#d9e3ed;text-shadow:0 1px 1px #101923;}
+html.cp19f-ux #settings[open] .settings-form{
+ background:
+  radial-gradient(ellipse at 50% 0%,#6a798629 0%,transparent 62%),
+  repeating-linear-gradient(90deg,transparent 0px,#ffffff04 2px,transparent 4px),
+  linear-gradient(160deg,#2c3643,#202a35 42%,#313b46);
+}
+html.cp19f-ux #settings[open] .settings-form label{
+ color:#e4eaf2;text-shadow:0 1px 2px #09111c;
+ letter-spacing:.01em;
+}
+html.cp19f-ux #settings[open] .cp19f-audio-row{
+ color:#f4f6fb;border:1.5px solid #8593a2;
+ background:linear-gradient(180deg,#515c6b,#2c3743 52%,#202a35);
+ box-shadow:inset 0 2px 2px #ffffff22,inset 0 -3px 5px #0e16219c,0 3px 7px #02060e69;
+}
+html.cp19f-ux #settings[open] .cp19f-audio-label{color:#f4f6fb;}
+html.cp19f-ux #settings[open] .close-settings{
+ color:#1b2633;
+ background:linear-gradient(180deg,#f9fbfd 0%,#d1dce5 16%,#99aabb 55%,#c7d2dc 100%);
+ border:1.5px solid #cbd6e1;border-bottom:3px solid #596a78;
+ text-shadow:0 1px 0 #ffffffd6;
+ box-shadow:0 4px 8px #050a13a3,inset 0 2px 2px #ffffffde,inset 0 -3px 5px #6070807f;
+}
+html.cp19f-ux #settings[open] .close-settings:active{box-shadow:inset 0 3px 7px #314050aa;filter:brightness(.97);}
+html.cp19f-ux #settings[open] .preview-version{color:#a7bacd;opacity:.95;}

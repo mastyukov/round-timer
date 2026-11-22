@@ -1,5 +1,5 @@
 /**
- * APP-001: detect an iOS WebKit AudioContext whose state says "running"
+ * APP-001 TEST: detect an iOS WebKit AudioContext whose state says "running"
  * while currentTime is frozen. No side effects except onStall, at most once
  * per foreground epoch. Restarts only on explicit resetEpoch or a new context.
  */

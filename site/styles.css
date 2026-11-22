@@ -114,3 +114,287 @@ main { flex:1;min-height:0;display:flex;flex-direction:column; gap:clamp(8px,1.3
 /* v0.8.16: visible only when iOS blocks automatic Web Audio recovery. */
 .audio-recovery[hidden] {display:none!important;}
 .audio-recovery {width:100%;min-height:44px;border:1px solid #95c9ff;border-radius:12px;background:#385472;color:#fff;font-weight:850;font-size:1rem;}
+
+/* CP19-F UX pilot only. E, CP18 and FINAL retain their exact appearance. */
+.cp19f-ux .settings[open]{max-width:580px;}
+.cp19f-ux .settings-form{gap:17px 14px;padding:17px 15px;}
+.cp19f-ux .settings-form label{gap:9px;font-size:clamp(.96rem,3.8vw,1.18rem);}
+.cp19f-ux .settings-form select{
+ min-height:62px;border-radius:14px;padding:11px 12px;
+ font-size:clamp(1.06rem,4.4vw,1.32rem);font-variant-numeric:tabular-nums;
+ touch-action:manipulation;
+}
+@media (orientation:portrait){
+ .cp19f-ux .clock{transform:scale(1.62,4.12);}
+}
+@media (orientation:landscape){
+ .cp19f-ux .clock{transform:scale(2.45,1.85);}
+ .cp19f-ux .settings[open]{max-width:780px;max-height:calc(100dvh - 14px);}
+ .cp19f-ux .settings-form{gap:11px 15px;padding:12px 16px;}
+ .cp19f-ux .settings-form label{font-size:.94rem;gap:6px;}
+ .cp19f-ux .settings-form select{min-height:46px;padding:8px 10px;font-size:1.04rem;}
+ .cp19f-ux .close-settings{min-height:42px;font-size:.95rem;}
+}
+@media (max-height:700px) and (orientation:portrait){
+ .cp19f-ux .settings-form{gap:10px;padding:11px;}
+ .cp19f-ux .settings-form select{min-height:53px;padding:8px 10px;}
+}
+
+/* CP19-F TEST: more visible clock height with width-safe aspect fitting in JS. */
+@media (orientation:portrait){ .cp19f-ux .clock{transform:scale(1.70,4.64);} }
+@media (orientation:landscape){ .cp19f-ux .clock{transform:scale(2.85,2.05);} }
+.cp19f-ux .settings-form select[hidden]{display:none!important;}
+.cp19f-wheel-trigger{
+ display:block;width:100%;min-height:66px;padding:12px;border:2px solid #aacfff;
+ border-radius:15px;background:#102441;color:#fff;text-align:center;
+ font-size:clamp(1.2rem,4.5vw,1.52rem);font-weight:850;font-variant-numeric:tabular-nums;
+ touch-action:manipulation;
+}
+.cp19f-wheel-trigger:disabled{opacity:.5;}
+.cp19f-wheel-overlay[hidden]{display:none!important;}
+.cp19f-wheel-overlay{position:fixed;inset:0;z-index:210;display:flex;align-items:center;justify-content:center;padding:max(8px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left));}
+.cp19f-wheel-backdrop{position:absolute;inset:0;background:#050914e8;}
+.cp19f-wheel-sheet{position:relative;display:flex;flex-direction:column;gap:12px;width:min(100%,520px);max-height:calc(100dvh - 26px);padding:16px;border:2px solid #93b7fb;border-radius:22px;background:#1a2a46;color:#fff;box-shadow:0 20px 70px #000b;}
+.cp19f-wheel-head{display:flex;justify-content:space-between;align-items:center;gap:12px;}
+.cp19f-wheel-head h2{margin:0;font-size:clamp(1.06rem,4vw,1.44rem);line-height:1.15;}
+.cp19f-wheel-cancel{min-height:45px;padding:8px 14px;border:1px solid #93b7fb;border-radius:12px;color:#fff;background:#ffffff1a;font-size:1rem;font-weight:800;}
+.cp19f-wheel-window{position:relative;min-height:0;flex:0 1 auto;border-radius:18px;overflow:hidden;background:linear-gradient(to bottom,#101c34,#202f51 42%,#202f51 58%,#101c34);}
+.cp19f-wheel-scroll{--wheel-row:64px;display:block;height:calc(var(--wheel-row)*5);max-height:40dvh;overflow-y:auto;scroll-snap-type:y mandatory;scroll-padding-block:calc(var(--wheel-row)*2);overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding-block:calc(var(--wheel-row)*2);scrollbar-width:none;touch-action:pan-y;}
+.cp19f-wheel-scroll::-webkit-scrollbar{display:none;}
+.cp19f-wheel-center{position:absolute;z-index:1;pointer-events:none;left:8px;right:8px;top:50%;height:64px;transform:translateY(-50%);border:2px solid #b2d3ff;border-radius:15px;background:#9cbcff1e;box-shadow:inset 0 0 20px #8db4ff26;}
+.cp19f-wheel-option{display:block;width:100%;height:var(--wheel-row);margin:0;padding:0 10px;border:0;background:none;color:#dae6ff;font-size:clamp(1.55rem,6.6vw,2.15rem);font-weight:800;text-align:center;scroll-snap-align:center;touch-action:pan-y;}
+.cp19f-wheel-option.is-current{color:#fff;font-size:clamp(1.8rem,7.5vw,2.45rem);font-weight:900;}
+.cp19f-wheel-done{flex:none;min-height:60px;width:100%;padding:9px 16px;border:0;border-radius:15px;background:#9cbcff;color:#071324;font-size:1.16rem;font-weight:900;}
+.cp19f-touch{animation:cp19f-tap-feedback 190ms ease-out;}
+@keyframes cp19f-tap-feedback{0%{filter:brightness(1.45);box-shadow:0 0 0 4px #a4c4ff55;transform:scale(.965);}100%{filter:brightness(1);box-shadow:0 0 0 0 transparent;transform:scale(1);}}
+@media (orientation:landscape){
+ .cp19f-ux .settings-form .cp19f-wheel-trigger{min-height:48px;padding:7px;font-size:1.1rem;}
+ .cp19f-wheel-sheet{width:min(95vw,700px);padding:8px 14px;gap:6px;max-height:calc(100dvh - 12px);}
+ .cp19f-wheel-scroll{--wheel-row:48px;height:calc(var(--wheel-row)*5);max-height:none;}
+ .cp19f-wheel-center{height:52px;}
+ .cp19f-wheel-head h2{font-size:1.04rem;}
+ .cp19f-wheel-cancel{min-height:40px;}
+ .cp19f-wheel-done{min-height:43px;}
+}
+@media (prefers-reduced-motion:reduce){.cp19f-touch{animation:none;filter:brightness(1.18);}}
+
+/* Free real vertical space for the landscape clock; never overlap the phase label. */
+@media (orientation:landscape){.cp19f-ux .round-count{font-size:3.75em;}}
+
+/* CP19-F v0.8.20.0: large grey setting wheels and deliberate sound status. */
+.cp19f-ux .scoreboard{gap:2px;}
+.cp19f-ux .round-line{line-height:.96;}
+.cp19f-ux .phase-line{line-height:1.04;}
+@media (orientation:portrait){.cp19f-ux .clock{transform:scale(1.79,5.20);}}
+@media (orientation:landscape){.cp19f-ux .clock{transform:scale(3.03,2.34);}}
+.cp19f-wheel-sheet{background:#464b54;border-color:#adb2bb;}
+.cp19f-wheel-window{background:linear-gradient(to bottom,#454950,#666b73 42%,#666b73 58%,#454950);}
+.cp19f-wheel-center{background:linear-gradient(180deg,#e1e3e7,#bfc4cb);border-color:#f0f1f3;box-shadow:0 1px 10px #0002,inset 0 2px 6px #fff8;}
+.cp19f-wheel-option{color:#2b3038;opacity:.63;}
+.cp19f-wheel-option.is-current{color:#0e151d;opacity:1;}
+.cp19f-wheel-trigger{background:#484e57;border-color:#aeb5bf;}
+.cp19f-wheel-done{background:#d8dce2;color:#1b222c;}
+.cp19f-audio-row[hidden]{display:none!important;}
+.cp19f-audio-row{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 10px;border:1px solid #aeb7c3;border-radius:16px;background:#303945;}
+.cp19f-audio-label{font-size:clamp(1rem,3.8vw,1.22rem);font-weight:850;color:#fff;}
+.cp19f-audio-toggle{position:relative;min-width:132px;min-height:57px;border:2px solid #ffffff88;border-radius:100px;padding:8px 18px;font-size:1.24rem;line-height:1;font-weight:950;letter-spacing:.03em;color:#fff;transition:background .12s ease,box-shadow .12s ease;isolation:isolate;}
+.cp19f-audio-toggle::after{content:"";position:absolute;top:50%;width:41px;height:41px;border-radius:50%;background:#fff;box-shadow:0 2px 10px #0006;transform:translateY(-50%);pointer-events:none;}
+.cp19f-audio-toggle[data-sound="on"]{background:#00b338;border-color:#50ff88;text-align:left;padding-left:17px;padding-right:52px;box-shadow:0 0 0 2px #18ff6040,0 0 14px #0fef5c99,inset 0 0 12px #00ef4544;}
+.cp19f-audio-toggle[data-sound="on"]::after{right:7px;}
+.cp19f-audio-toggle[data-sound="off"]{background:#d52230;border-color:#ff707b;text-align:right;padding-left:52px;padding-right:15px;box-shadow:0 0 0 2px #ff445540,0 0 14px #fa233999,inset 0 0 12px #ff637044;}
+.cp19f-audio-toggle[data-sound="off"]::after{left:7px;}
+.cp19f-audio-toggle:focus-visible{outline:3px solid #fff;outline-offset:3px;}
+@media (orientation:landscape){.cp19f-audio-row{padding:4px 12px;}.cp19f-audio-toggle{min-height:47px;min-width:115px;font-size:1.03rem;} .cp19f-audio-toggle::after{width:32px;height:32px;} .cp19f-audio-toggle[data-sound="on"]{padding-right:44px;} .cp19f-audio-toggle[data-sound="off"]{padding-left:44px;}}
+@media (prefers-reduced-motion:reduce){.cp19f-audio-toggle{transition:none;}}
+
+/* v0.8.20.0: four always-visible grey scroll wheels, as approved in visual mockup. */
+.cp19f-ux .settings-form label{gap:7px;}
+.cp19f-inline-wheel{
+ --wheel-row:52px;position:relative;width:100%;height:calc(var(--wheel-row)*3);
+ border:1.5px solid #d3d5d9;border-radius:20px;overflow:hidden;
+ background:linear-gradient(to bottom,#90949b,#b2b5ba 43%,#b2b5ba 57%,#90949b);
+ box-shadow:inset 0 2px 9px #1117;
+}
+.cp19f-inline-center{
+ position:absolute;z-index:0;pointer-events:none;top:50%;left:3px;right:3px;
+ height:var(--wheel-row);transform:translateY(-50%);
+ border:1px solid #f0f1f3;border-radius:15px;
+ background:linear-gradient(to bottom,#e8e9eb,#ccd0d5);
+ box-shadow:0 2px 7px #20252c44,inset 0 2px 5px #fff9;
+}
+.cp19f-inline-scroll{
+ position:relative;z-index:1;width:100%;height:100%;overflow-x:hidden;overflow-y:auto;
+ -webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;
+ scroll-snap-type:y mandatory;scroll-padding-block:var(--wheel-row);
+ padding-block:var(--wheel-row);scrollbar-width:none;
+}
+.cp19f-inline-scroll::-webkit-scrollbar{display:none;}
+.cp19f-inline-option{
+ display:flex;align-items:center;justify-content:center;width:100%;height:var(--wheel-row);padding:0 4px;margin:0;border:0;
+ background:transparent;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+ font-size:clamp(1.12rem,4.6vw,1.42rem);line-height:1;font-weight:850;
+ color:#3f444c;opacity:.67;font-variant-numeric:tabular-nums;
+ scroll-snap-align:center;touch-action:pan-y;
+}
+.cp19f-inline-option.is-current{color:#111820;opacity:1;font-weight:950;font-size:clamp(1.3rem,5.3vw,1.74rem);}
+.cp19f-inline-wheel.is-disabled{opacity:.55;}
+.cp19f-inline-wheel.is-disabled .cp19f-inline-scroll{pointer-events:none;}
+@media (orientation:landscape){
+ .cp19f-inline-wheel{--wheel-row:40px;border-radius:14px;}
+ .cp19f-inline-center{border-radius:11px;}
+ .cp19f-inline-option{font-size:1.06rem;}
+ .cp19f-inline-option.is-current{font-size:1.27rem;}
+ .cp19f-ux .settings-form{gap:7px 12px;padding:8px 12px;}
+ .cp19f-ux .settings-form label{gap:4px;font-size:.81rem;}
+}
+/* All four wheel values + sound + Done remain visible on short landscape screens. */
+@media (orientation:landscape) and (max-height:450px){
+ .cp19f-inline-wheel{--wheel-row:28px;border-radius:12px;}
+ .cp19f-inline-center{border-radius:8px;}
+ .cp19f-inline-option{font-size:.94rem;}
+ .cp19f-inline-option.is-current{font-size:1.16rem;}
+ .cp19f-ux .settings[open] summary{min-height:30px;padding:3px 10px;font-size:.80rem;}
+ .cp19f-ux .settings-form{gap:4px 11px;padding:5px 10px;}
+ .cp19f-ux .settings-form label{gap:2px;font-size:.78rem;}
+ .cp19f-audio-row{min-height:40px;padding:2px 8px;}
+ .cp19f-audio-toggle{min-height:37px;min-width:106px;}
+ .cp19f-audio-toggle::after{width:26px;height:26px;}
+ .cp19f-ux .close-settings{min-height:34px;padding:3px;font-size:.78rem;}
+ .preview-version{font-size:.58rem;margin:0 0 0 2px;}
+}
+
+/* CP19-F v0.8.20.1: zoom the existing inline picker only while being scrolled.
+   No modal, no confirmation button, no resizing of adjacent layout cells. */
+.cp19f-ux .cp19f-inline-wheel{
+ transform:scale(1);transform-origin:center center;
+ transition:transform 165ms ease-out,box-shadow 165ms ease-out;
+ will-change:transform;
+}
+.cp19f-ux .settings-form label{position:relative;}
+.cp19f-ux .cp19f-inline-wheel.is-engaged:not(.is-disabled){
+ z-index:5;transform:scale(1);
+ box-shadow:0 10px 24px #0007,0 0 0 2px #e6e9ed88,inset 0 2px 9px #1117;
+}
+@media (orientation:landscape){
+ .cp19f-ux .cp19f-inline-wheel.is-engaged:not(.is-disabled) .cp19f-inline-center{transform:translateY(-50%) scale(1.04);}
+}
+@media (prefers-reduced-motion:reduce){
+ .cp19f-ux .cp19f-inline-wheel{transition:none;will-change:auto;}
+}
+
+/* Safari touch pilot: no transform on the scroll container itself. */
+.cp19f-ux .cp19f-inline-scroll,.cp19f-ux .cp19f-inline-option{touch-action:none;}
+.cp19f-ux .cp19f-inline-option{cursor:pointer;}
+.cp19f-ux .cp19f-inline-wheel.is-engaged:not(.is-disabled) .cp19f-inline-center{transform:translateY(-50%) scale(1.055);}
+@media (orientation:landscape){.cp19f-ux .cp19f-inline-wheel.is-engaged:not(.is-disabled) .cp19f-inline-center{transform:translateY(-50%) scale(1.04);}}
+
+/* CP19-F 0.8.20.3: visually balanced picker boundaries without wrapping values. */
+.cp19f-inline-limit[hidden]{display:none!important;}
+.cp19f-inline-limit{
+ position:absolute;z-index:3;left:0;right:0;height:var(--wheel-row);
+ display:flex;justify-content:center;align-items:center;pointer-events:none;
+ font-size:clamp(1.12rem,4.6vw,1.42rem);font-weight:850;
+ color:#404650;opacity:.63;user-select:none;
+}
+.cp19f-inline-limit-top{top:0;}
+.cp19f-inline-limit-bottom{bottom:0;}
+@media (orientation:landscape){.cp19f-inline-limit{font-size:1.06rem;}}
+
+/* CP19-F v0.8.20.4: localized sound switch keeps the white knob and glow. */
+.cp19f-ux .cp19f-audio-toggle{min-width:145px;}
+@media (orientation:landscape){.cp19f-ux .cp19f-audio-toggle{min-width:128px;}}
+
+/* 0.8.20.5: center every glyph in its wheel row; enlarge only the infinity symbol. */
+.cp19f-ux .cp19f-inline-option.is-infinity{font-size:clamp(1.7rem,6.6vw,2.1rem);}
+.cp19f-ux .cp19f-inline-option.is-infinity.is-current{font-size:clamp(2rem,7.7vw,2.45rem);}
+@media (orientation:landscape){
+ .cp19f-ux .cp19f-inline-option.is-infinity{font-size:1.3rem;}
+ .cp19f-ux .cp19f-inline-option.is-infinity.is-current{font-size:1.52rem;}
+}
+@media (orientation:landscape) and (max-height:450px){
+ .cp19f-ux .cp19f-inline-option.is-infinity{font-size:1.13rem;}
+ .cp19f-ux .cp19f-inline-option.is-infinity.is-current{font-size:1.4rem;}
+}
+
+/* CP19-F v0.8.20.6: selected value is 1.5x larger, with row geometry unchanged. */
+.cp19f-ux .cp19f-inline-option.is-current {
+ font-size:clamp(1.95rem,7.95vw,2.61rem);
+ line-height:1;
+}
+.cp19f-ux .cp19f-inline-option.is-infinity.is-current {
+ font-size:clamp(2.6rem,10vw,3rem);
+}
+@media (orientation:landscape) {
+ .cp19f-ux .cp19f-inline-option.is-current {font-size:1.905rem;}
+ .cp19f-ux .cp19f-inline-option.is-infinity.is-current {font-size:2.28rem;}
+ /* Double both label and count against the existing landscape values. */
+ .cp19f-ux .round-word {font-size:2em;}
+ .cp19f-ux .round-count {font-size:7.5em;}
+ .cp19f-ux .round-line {
+   margin-top:clamp(2px,.7vh,5px);
+   transform:translateY(clamp(5px,1.5vh,9px));
+ }
+}
+@media (orientation:landscape) and (max-height:450px) {
+ .cp19f-ux .cp19f-inline-option.is-current {font-size:1.74rem;}
+ .cp19f-ux .cp19f-inline-option.is-infinity.is-current {font-size:1.65rem;}
+}
+@media (orientation:landscape) and (max-height:350px) {
+ /* Keep the countdown and action controls visible on unusually short screens. */
+ .cp19f-ux .round-word {font-size:1.65em;}
+ .cp19f-ux .round-count {font-size:6.25em;}
+}
+
+/* CP19-F v0.8.20.8: compact 2x2 setting wheels, preserve centered selected glyphs. */
+.cp19f-ux .cp19f-inline-wheel{--wheel-row:46px;width:96%;margin-inline:auto;}
+.cp19f-ux .cp19f-inline-option.is-infinity.is-current{font-size:clamp(2.4rem,9vw,2.7rem);}
+@media (orientation:landscape){
+ .cp19f-ux .cp19f-inline-wheel{--wheel-row:36px;}
+ .cp19f-ux .cp19f-inline-option.is-infinity.is-current{font-size:2.05rem;}
+}
+@media (orientation:landscape) and (max-height:450px){
+ .cp19f-ux .cp19f-inline-wheel{--wheel-row:26px;}
+ .cp19f-ux .cp19f-inline-option.is-current{font-size:1.48rem;}
+ .cp19f-ux .cp19f-inline-option.is-infinity.is-current{font-size:1.48rem;}
+}
+
+/* CP19-F v0.8.20.9 skeuomorphic Apple-era wheel pilot.
+   Layered depth is purely decorative: it must never capture touch/scroll. */
+.cp19f-ux .cp19f-inline-wheel{
+ isolation:isolate;
+ border:1.5px solid #939aa4;
+ background:
+  linear-gradient(90deg,#828992 0%,#b1b8bf 7%,#c9ced3 50%,#b1b8bf 93%,#818891 100%);
+ box-shadow:
+  0 1px 0 #f4f6f7a8,
+  0 3px 8px #080b1059,
+  inset 0 2px 6px #10141b9e,
+  inset 0 -3px 7px #12161d9c;
+}
+.cp19f-ux .cp19f-inline-wheel::before{
+ content:"";position:absolute;inset:0;z-index:3;pointer-events:none;
+ background:linear-gradient(to bottom,
+  #0d111ac2 0%,#1b202b8c 13%,#22283340 27%,
+  #161d2600 36%,#161d2600 64%,
+  #22283340 73%,#1b202b8c 87%,#0d111ac2 100%);
+}
+.cp19f-ux .cp19f-inline-wheel::after{
+ content:"";position:absolute;inset:0;z-index:4;pointer-events:none;
+ border-radius:inherit;
+ box-shadow:inset 7px 0 10px #12182171,inset -7px 0 10px #12182171,
+            inset 0 7px 11px #0e141e99,inset 0 -7px 12px #0e141e99;
+}
+.cp19f-ux .cp19f-inline-center{
+ background:linear-gradient(180deg,
+  #f4f6f9 0%,#e0e5e9 11%,#c5ccd3 44%,#d1d8df 65%,#f0f3f5 100%);
+ border:1px solid #f6f9fc;
+ box-shadow:0 2px 5px #11192265,inset 0 2px 2px #ffffffda,
+            inset 0 -3px 5px #68778480;
+}
+.cp19f-ux .cp19f-inline-option.is-current{
+ text-shadow:0 1px 0 #ffffffa6,0 -1px 1px #18202b4d;
+}
+.cp19f-ux .cp19f-inline-option:not(.is-current){
+ text-shadow:0 1px 1px #f4f6f870;
+}
+/* Only optical depth changes; the 46px/36px/26px row heights stay fixed. */

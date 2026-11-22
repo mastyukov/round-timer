@@ -1,0 +1,25 @@
+
+/* CP19-F v0.8.20.10: give the remaining countdown priority in landscape.
+   The 1/8 round label stays readable but no longer steals the clock's height. */
+@media (orientation:landscape){
+ .cp19f-ux .round-word{font-size:1em;}
+ .cp19f-ux .round-count{font-size:3.75em;}
+ .cp19f-ux .round-line{margin-top:0;transform:translateY(clamp(1px,.7vh,4px));}
+}
+@media (orientation:landscape) and (max-height:350px){
+ .cp19f-ux .round-word{font-size:.95em;}
+ .cp19f-ux .round-count{font-size:3.35em;}
+}
+/* Preserve the metal-wheel depth and center, reduce its surrounding housing
+   slightly. Limit dashes are overlaid above the cosmetic vignette only. */
+.cp19f-ux .cp19f-inline-wheel{--wheel-row:44px;width:94%;margin-inline:auto;}
+.cp19f-ux .cp19f-inline-limit{
+ z-index:5;color:#e12b3f;opacity:1;font-weight:950;
+ text-shadow:0 1px 0 #f7f8f9b0,0 0 3px #80101a6b;
+}
+@media (orientation:landscape){
+ .cp19f-ux .cp19f-inline-wheel{--wheel-row:34px;}
+}
+@media (orientation:landscape) and (max-height:450px){
+ .cp19f-ux .cp19f-inline-wheel{--wheel-row:25px;}
+}
