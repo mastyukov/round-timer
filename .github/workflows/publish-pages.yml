@@ -1,4 +1,4 @@
-name: Publish approved Round Timer FINAL v0.8.20.16 to GitHub Pages
+name: Publish approved Round Timer FINAL v0.8.20.17 to GitHub Pages
 on:
   push:
     branches: [main]
@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   verify:
-    name: Verify FINAL v0.8.20.16 exact assets and source
+    name: Verify FINAL v0.8.20.17 exact assets and source
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
