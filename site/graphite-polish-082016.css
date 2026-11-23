@@ -65,3 +65,11 @@ html.cp19f-ux #settings[open] .preview-version{
  display:block;width:100%;max-width:100%;min-width:0;
  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
+
+/* APP-001 CP19-F / 0.8.20.18 candidate: edge-limit dashes are cosmetic.
+ * Their dynamic hidden state follows the current value and can flicker at
+ * range boundaries on iOS Safari during finger contact. Keep all four wheels,
+ * touch tracking, scroll snapping, values and accessibility intact. */
+html.cp19f-ux #settings[open] .cp19f-inline-limit{
+ display:none!important;
+}
