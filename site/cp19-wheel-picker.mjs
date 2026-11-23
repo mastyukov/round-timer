@@ -139,11 +139,14 @@ export function createCP19WheelPicker({form,ids,feedback}={}){
     entry.settleTimer=null;entry.touching=false;wheel.classList.remove('is-engaged');
    }
    scroll.setAttribute('aria-disabled',String(select.disabled));
+   // While a finger is down, highlight() owns both boundary markers using
+   // the provisional wheel index. The hidden native select is committed only
+   // on touchend, so never overwrite the live markers from its stale value.
+   if(entry.touching)continue;
    const idx=Math.max(0,select.selectedIndex);
    entry.minMarker.hidden=idx!==0;
    entry.maxMarker.hidden=idx!==select.options.length-1;
    if(scroll.clientHeight===0){entry.lastSynced=NaN;entry.lastRowHeight=NaN;entry.busy=false;continue;}
-   if(entry.touching)continue;
    const h=parseFloat(view?.getComputedStyle(scroll).getPropertyValue('--wheel-row'))||52;
    if(idx!==entry.lastSynced||Math.abs(entry.lastRowHeight-h)>.5){
     entry.lastSynced=idx;entry.lastRowHeight=h;entry.index=idx;

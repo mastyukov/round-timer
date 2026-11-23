@@ -10,14 +10,14 @@ const gitSha=p=>{
  return createHash('sha1').update('blob '+bytes.length+'\0').update(bytes).digest('hex');
 };
 
-test('FINAL v0.8.20.18: public entry is production identity, approved controls and graphite, no TEST status',()=>{
+test('FINAL v0.8.20.19: public entry is production identity, approved controls and graphite, no TEST status',()=>{
  const html=read('index.html');
- assert.match(html,/name="round-timer-version" content="v0\.8\.20\.18"/);
+ assert.match(html,/name="round-timer-version" content="v0\.8\.20\.19"/);
  assert.match(html,/name="apple-mobile-web-app-title" content="Раунд таймер"/);
  assert.match(html,/href="\.\/manifest\.webmanifest"/);
- assert.match(html,/src="\.\/app\.mjs\?v=082018"/);
- assert.match(html,/href="\.\/graphite-polish-082016\.css\?v=082018"/);
- assert.match(html,/미하일 0\.8\.20\.18/);
+ assert.match(html,/src="\.\/app\.mjs\?v=082019"/);
+ assert.match(html,/href="\.\/graphite-polish-082016\.css\?v=082019"/);
+ assert.match(html,/미하일 0\.8\.20\.19/);
  assert.doesNotMatch(html,/ТЕСТОВАЯ ВЕРСИЯ|Apple Music TEST|Таймер F TEST|round-timer-preview-build/);
  for(const id of ['workInput','roundsInput','prepareInput','restInput','soundToggle',
   'startPauseButton','resetButton','clock','roundCurrent','roundTotal','closeSettingsButton']){
@@ -40,8 +40,8 @@ test('Apple Music ambient and button-first Prewarm are on root and never stop ex
  assert.match(app,/if\(event\.isTrusted\)applyAmbient\(\)/);
  assert.match(app,/window\.addEventListener\('pageshow',applyAmbient\)/);
  assert.match(app,/soundsLoading=\(PREVIEW_PREWARM\?prewarmButtonFirst\(soundEntries,decodeEntry\):/);
- assert.match(app,/const DIAGNOSTICS_VERSION='0\.8\.20\.18'/);
- assert.match(app,/PREVIEW_MAIN_HOME\?'0\.8\.20\.18-MAIN'/);
+ assert.match(app,/const DIAGNOSTICS_VERSION='0\.8\.20\.19'/);
+ assert.match(app,/PREVIEW_MAIN_HOME\?'0\.8\.20\.19-MAIN'/);
  assert.doesNotMatch(ambient,/\.pause\(|\.play\(|\.volume\s*=/);
  assert.doesNotMatch(app,/dispatchEvent\(new (?:MouseEvent|PointerEvent)/);
 });
@@ -58,20 +58,26 @@ test('frozen countdown source, four rounded corners and aligned PREPARE/REST whe
  assert.match(css,/translateY\(clamp\(20px,4\.2vh,29px\)\) scale\(1\.33\)/);
  assert.match(css,/translateY\(13px\) scale\(1\.19\)/);
  assert.ok(css.includes('overflow-x:hidden;'));
- assert.match(css,/\.cp19f-inline-limit\s*\{\s*display:none!important;/);
+ assert.doesNotMatch(css,/\.cp19f-inline-limit\s*\{\s*display:none!important;/);
+ const picker=read('cp19-wheel-picker.mjs');
+ const refresh=picker.slice(picker.indexOf('function refresh(){'));
+ assert.ok(refresh.includes('if(entry.touching)continue;'),'touch guard must exist');
+ assert.ok(refresh.indexOf('if(entry.touching)continue;')<refresh.indexOf('entry.minMarker.hidden=idx!==0;'),'touch guard before stale marker state');
+ assert.match(picker,/minMarker\.hidden=entry\.index!==0/);
+ assert.match(picker,/maxMarker\.hidden=entry\.index!==select\.options\.length-1/);
  assert.ok(css.includes('overscroll-behavior-x:none;'));
  assert.ok(css.includes('touch-action:pan-y;'));
  assert.ok(css.includes('text-overflow:ellipsis;'));
  const runtime=read('app.mjs');
- assert.ok(runtime.includes("label.textContent=PREVIEW_MAIN_HOME?'미하일 0.8.20.18'"));
- assert.ok(runtime.includes("el.textContent=PREVIEW_MAIN_HOME?'미하일 0.8.20.18'"));
+ assert.ok(runtime.includes("label.textContent=PREVIEW_MAIN_HOME?'미하일 0.8.20.19'"));
+ assert.ok(runtime.includes("el.textContent=PREVIEW_MAIN_HOME?'미하일 0.8.20.19'"));
  const stripped=css.replace(/\/\*[\s\S]*?\*\//g,'');
  assert.doesNotMatch(stripped,/\.clock\s*\{|\.clock-frame\s*\{|font-size\s*:|--wheel-row\s*:/);
 });
 
 test('offline SW precache contains every source, original audio and NO developer test pages',()=>{
  const sw=read('sw.js');
- assert.match(sw,/round-timer-shell-v0\.8\.20\.18-final-graphite-ambient/);
+ assert.match(sw,/round-timer-shell-v0\.8\.20\.19-final-graphite-ambient/);
  assert.match(sw,/cache\.addAll\(SHELL\)/);
  assert.match(sw,/self\.skipWaiting\(\)/);
  assert.match(sw,/self\.clients\.claim\(\)/);
@@ -87,7 +93,7 @@ test('offline SW precache contains every source, original audio and NO developer
   const path=item.slice(2).split('?')[0];
   assert.ok(existsSync(file(path)),'offline reference missing '+item);
  }
- for(const item of ['./app.mjs?v=082018','./graphite-polish-082016.css?v=082018',
+ for(const item of ['./app.mjs?v=082019','./graphite-polish-082016.css?v=082019',
   './preview-ambient-audio-session.mjs','./preview-audio-prewarm.mjs',
   './sounds/cp19-wav/button.wav','./sounds/cp19-wav/studio-gong-start.wav'])
   assert.ok(list.includes(item),'required resource not cached '+item);
@@ -121,5 +127,5 @@ test('public artifact scope and error-only technical diagnostics remain limited'
  assert.match(sender,/locationLike\?\.origin==='https:\/\/mastyukov\.github\.io'/);
  assert.match(sender,/const MAX_EVENTS = 5/);
  assert.match(read('app.mjs'),/productionDiagnosticEndpoint\(globalThis\.location,/);
- assert.match(read('app.mjs'),/const DIAGNOSTICS_VERSION='0\.8\.20\.18';/);
+ assert.match(read('app.mjs'),/const DIAGNOSTICS_VERSION='0\.8\.20\.19';/);
 });
