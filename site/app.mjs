@@ -41,9 +41,9 @@ if(CP19F_UX&&PREVIEW_MUSIC_FIX){
  window.addEventListener('pageshow',applyAmbient);
  document.addEventListener('visibilitychange',()=>{if(!document.hidden)applyAmbient();});
 }
-const CP19_VERSION=CP19F_UX?(PREVIEW_MAIN_HOME?'0.8.20.17-MAIN':PREVIEW_MUSIC_FIX?'0.8.20.15-MUSIC':PREVIEW_MAIN_HOME?'0.8.20.14-MAIN':PREVIEW_CONTROL_DECK?'0.8.20.13-DECK':PREVIEW_PREWARM?'0.8.20.12-PW':PREVIEW_VARIANT==='graphite-v2'?'0.8.20.11-A2':PREVIEW_VARIANT?`0.8.20.10-${PREVIEW_VARIANT==='graphite'?'A':'B'}`:'0.8.20.9'):'0.8.19.4';
+const CP19_VERSION=CP19F_UX?(PREVIEW_MAIN_HOME?'0.8.20.18-MAIN':PREVIEW_MUSIC_FIX?'0.8.20.15-MUSIC':PREVIEW_MAIN_HOME?'0.8.20.14-MAIN':PREVIEW_CONTROL_DECK?'0.8.20.13-DECK':PREVIEW_PREWARM?'0.8.20.12-PW':PREVIEW_VARIANT==='graphite-v2'?'0.8.20.11-A2':PREVIEW_VARIANT?`0.8.20.10-${PREVIEW_VARIANT==='graphite'?'A':'B'}`:'0.8.20.9'):'0.8.19.4';
 const CP18_BUTTON_WINDOW_MS=CP19?null:cp18WindowFromSearch(globalThis.location?.search||'');
-const DIAGNOSTICS_VERSION='0.8.20.17';
+const DIAGNOSTICS_VERSION='0.8.20.18';
 const diagnosticSender=createDiagnosticSender({
   endpoint:productionDiagnosticEndpoint(globalThis.location,'https://round-timer-error-receiver.mastyukov.workers.dev/v1/error')
 });
@@ -83,7 +83,7 @@ if(CP19F_UX)document.addEventListener('pointerdown',event=>{
 const byId=id=>document.getElementById(id);
 if(CP19){
  const label=document.querySelector?.('.preview-version');
- if(label)label.textContent=PREVIEW_MAIN_HOME?'미하일 0.8.20.17':`미하일 ${CP19_VERSION} · TEST ${CP19.label}`;
+ if(label)label.textContent=PREVIEW_MAIN_HOME?'미하일 0.8.20.18':`미하일 ${CP19_VERSION} · TEST ${CP19.label}`;
 }else if(CP18_BUTTON_WINDOW_MS!==null){
  const label=document.querySelector?.('.preview-version');
  if(label)label.textContent=`미하일 0.8.19.3 · TEST ${CP18_BUTTON_WINDOW_MS} мс`;
@@ -138,7 +138,7 @@ let cp19WorkletBusy=false;
 function cp19Status(message){
  if(!CP19)return;
  const el=document.querySelector?.('.preview-version');
- if(el)el.textContent=PREVIEW_MAIN_HOME?'미하일 0.8.20.17':`미하일 ${CP19_VERSION} · TEST ${CP19.label} · ${message}`;
+ if(el)el.textContent=PREVIEW_MAIN_HOME?'미하일 0.8.20.18':`미하일 ${CP19_VERSION} · TEST ${CP19.label} · ${message}`;
 }
 function cp19Gesture(event){
  if(!CP19||document.hidden||!soundEnabled||event?.target?.closest?.('#soundToggle'))return;
