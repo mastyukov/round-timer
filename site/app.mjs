@@ -1,9 +1,11 @@
+import {normalizeBluetoothLead,plannedCueWindow} from './bluetooth-lead.mjs';
 import {createDiagnosticSender,attachBrowserErrorCapture,productionDiagnosticEndpoint} from './diagnostics/sender.mjs';
 import {createDelayedStartGuard,createActiveSoundController,createAudioInterruptionGuard,isCueFresh} from './audio-guard.mjs';
 import {createHtmlAudioController} from './html-audio.mjs';
 import {createWebAudioRetirement} from './web-audio-retire.mjs';
 import {createAudioDucking} from './audio-duck.mjs';
-import {createAudioClockWatchdog,pulseStalledContext} from './audio-clock-watchdog.mjs';
+import {pulseStalledContext} from './audio-clock-watchdog.mjs';
+import {createForegroundAudioGate,boundedResume} from './foreground-audio-clock.mjs';
 import {cp18WindowFromSearch,deferredButtonCueAllowed} from './cp18-audio-window.mjs';
 import {CP19_MODES,cp19Mode,cp19Paths,cp19PrimeAudio,cp19CanPlayStartCue} from './cp19-audio-modes.mjs';
 import {createCP19KeepAlive} from './cp19-keepalive.mjs';
@@ -14,16 +16,14 @@ import {fitCP19Clock} from './preview-variants-clock-fit.mjs';
 import {prewarmButtonFirst} from './preview-audio-prewarm.mjs';
 import {ensureAmbientAudioSession} from './preview-ambient-audio-session.mjs';
 const PREVIEW_VARIANT=/\/preview-(graphite-musicfix|graphite-deck|graphite-prewarm|graphite-v2|graphite|classic)\.html$/.exec(globalThis.location?.pathname||'')?.[1]||null;
-const PREVIEW_MAIN_HOME=/(?:\/|\/index\.html|\/test-f\.html)$/.test(globalThis.location?.pathname||'')
- && !new URLSearchParams(globalThis.location?.search||'').has('cp18')
- && !new URLSearchParams(globalThis.location?.search||'').has('cp19');
+const PREVIEW_MAIN_HOME=true; // production root uses the accepted WAV G engine
 const PREVIEW_MUSIC_FIX=PREVIEW_VARIANT==='graphite-musicfix'||PREVIEW_MAIN_HOME;
 const PREVIEW_CONTROL_DECK=PREVIEW_VARIANT==='graphite-deck'||PREVIEW_MUSIC_FIX||PREVIEW_MAIN_HOME;
 const PREVIEW_PREWARM=PREVIEW_CONTROL_DECK||PREVIEW_VARIANT==='graphite-prewarm';
 const CP19_F_LAUNCH=(globalThis.location?.pathname||'').endsWith('/test-f.html')||!!PREVIEW_VARIANT;
 const CP19_F_ROOT_DEFAULT=/(?:\/|\/index\.html)$/.test(globalThis.location?.pathname||'') && !new URLSearchParams(globalThis.location?.search||'').has('cp18') && !new URLSearchParams(globalThis.location?.search||'').has('cp19');
-const CP19_MODE=(CP19_F_LAUNCH||CP19_F_ROOT_DEFAULT)?'wav-keepalive':cp19Mode(globalThis.location?.search||'');
-const CP19=CP19_MODE===null?null:CP19_MODES[CP19_MODE];
+const CP19_MODE='wav-keepalive'; // retain existing CP19F interface
+const CP19=Object.freeze({...CP19_MODES[CP19_MODE],label:'WAV · G',prime:false,keepalive:false});
 const CP19F_UX=CP19_MODE==='wav-keepalive';
 if(CP19F_UX)document.documentElement?.classList?.add?.('cp19f-ux');
 if(CP19F_UX&&PREVIEW_MUSIC_FIX){
@@ -41,16 +41,16 @@ if(CP19F_UX&&PREVIEW_MUSIC_FIX){
  window.addEventListener('pageshow',applyAmbient);
  document.addEventListener('visibilitychange',()=>{if(!document.hidden)applyAmbient();});
 }
-const CP19_VERSION=CP19F_UX?(PREVIEW_MAIN_HOME?'0.8.20.19-MAIN':PREVIEW_MUSIC_FIX?'0.8.20.15-MUSIC':PREVIEW_MAIN_HOME?'0.8.20.14-MAIN':PREVIEW_CONTROL_DECK?'0.8.20.13-DECK':PREVIEW_PREWARM?'0.8.20.12-PW':PREVIEW_VARIANT==='graphite-v2'?'0.8.20.11-A2':PREVIEW_VARIANT?`0.8.20.10-${PREVIEW_VARIANT==='graphite'?'A':'B'}`:'0.8.20.9'):'0.8.19.4';
+const CP19_VERSION=CP19F_UX?(PREVIEW_MAIN_HOME?'0.8.20.20-MAIN':PREVIEW_MUSIC_FIX?'0.8.20.15-MUSIC':PREVIEW_MAIN_HOME?'0.8.20.14-MAIN':PREVIEW_CONTROL_DECK?'0.8.20.13-DECK':PREVIEW_PREWARM?'0.8.20.12-PW':PREVIEW_VARIANT==='graphite-v2'?'0.8.20.11-A2':PREVIEW_VARIANT?`0.8.20.10-${PREVIEW_VARIANT==='graphite'?'A':'B'}`:'0.8.20.9'):'0.8.19.4';
 const CP18_BUTTON_WINDOW_MS=CP19?null:cp18WindowFromSearch(globalThis.location?.search||'');
-const DIAGNOSTICS_VERSION='0.8.20.19';
+const DIAGNOSTICS_VERSION='0.8.20.20';
 const diagnosticSender=createDiagnosticSender({
   endpoint:productionDiagnosticEndpoint(globalThis.location,'https://round-timer-error-receiver.mastyukov.workers.dev/v1/error')
 });
 attachBrowserErrorCapture({target:window,sender:diagnosticSender,version:DIAGNOSTICS_VERSION});
 // Error-only telemetry; no usage, no personal information and no UI changes.
 import {normalizeConfig,computePhase,formatTime,WORK_CHOICES,REST_CHOICES,ROUND_CHOICES,PREPARE_CHOICES,crossedCountdown,cueForPhaseTransition} from './engine.mjs';
-const STORAGE_KEY=CP19?`timer-active-session-cp19-${CP19_MODE}-v1`:(CP18_BUTTON_WINDOW_MS===null?'timer-active-session-v1':`timer-active-session-cp18-${CP18_BUTTON_WINDOW_MS}-v1`);
+const STORAGE_KEY='timer-active-session-cp19-wav-keepalive-v1';
 // RC6 preview resets earlier transport and speculative 50% options.
 // RC13 TEST: reset previously saved audio mode to reliable HTML default.
 const PREVIEW_AUDIO_KEY='round-timer-preview-transport-rc13-v1';
@@ -69,7 +69,9 @@ if(AUDIO_QA_CONTROLS && isPreview){
 }
 
 const SOUND_KEY='round-timer-cp19f-sound-toggle-v1';
-const SETTINGS_KEY=CP19F_UX?'round-timer-cp19f-settings-v1':null;
+const SETTINGS_KEY='round-timer-cp19f-settings-v1';
+const BT_LEAD_KEY='round-timer-bluetooth-lead-v1';
+let btLeadMs=0;try{btLeadMs=normalizeBluetoothLead(localStorage.getItem(BT_LEAD_KEY))}catch(_){}
 let soundEnabled=true;
 if(CP19F_UX){try{soundEnabled=localStorage.getItem(SOUND_KEY)!=='off';}catch(_){}}
 const cp19Haptics=CP19F_UX?createCP19Haptics({navigatorRef:navigator}):null;
@@ -83,12 +85,20 @@ if(CP19F_UX)document.addEventListener('pointerdown',event=>{
 const byId=id=>document.getElementById(id);
 if(CP19){
  const label=document.querySelector?.('.preview-version');
- if(label)label.textContent=PREVIEW_MAIN_HOME?'미하일 0.8.20.19':`미하일 ${CP19_VERSION} · TEST ${CP19.label}`;
+ if(label)label.textContent=PREVIEW_MAIN_HOME?'미하일 0.8.20.20':`미하일 ${CP19_VERSION} · TEST ${CP19.label}`;
 }else if(CP18_BUTTON_WINDOW_MS!==null){
  const label=document.querySelector?.('.preview-version');
  if(label)label.textContent=`미하일 0.8.19.3 · TEST ${CP18_BUTTON_WINDOW_MS} мс`;
 }
 const el={work:byId('workInput'),rest:byId('restInput'),rounds:byId('roundsInput'),prepare:byId('prepareInput'),clock:byId('clock'),round:byId('roundLabel'),roundCount:byId('roundCount'),roundCurrent:byId('roundCurrent'),roundTotal:byId('roundTotal'),phase:byId('phaseLabel'),progress:byId('progressBar'),start:byId('startPauseButton'),reset:byId('resetButton'),settings:byId('settings'),closeSettings:byId('closeSettingsButton'),audioRecover:byId('audioRecoveryButton'),form:byId('settingsForm'),soundControl:byId('soundControl'),soundToggle:byId('soundToggle')};
+const btLeadInput=byId('btLeadInput'),btLeadStatus=byId('btLeadStatus');
+for(let ms=0;ms<=1500;ms+=50){const opt=document.createElement('option');opt.value=String(ms);opt.textContent=ms===0?'0 мс · выкл':ms+' мс';btLeadInput.append(opt)}
+btLeadInput.value=String(btLeadMs);
+btLeadInput.addEventListener('change',()=>{
+ if(session&&phaseNow().type!=='done'){btLeadInput.value=String(btLeadMs);return}
+ btLeadMs=normalizeBluetoothLead(btLeadInput.value);btLeadInput.value=String(btLeadMs);
+ try{localStorage.setItem(BT_LEAD_KEY,String(btLeadMs));btLeadStatus.textContent='Сохранено'}catch(_){btLeadStatus.textContent='Только до закрытия'}
+});
 function durationLabel(sec) {
   if(sec===0) return '0 секунд';
   const min=Math.floor(sec/60), remainder=sec%60;
@@ -116,20 +126,13 @@ el.soundToggle?.addEventListener('click',()=>{
   delayedStartGong.invalidate();
   stopActiveAudio({fadeMs:0,preserveMix:true});
   cp19KeepAlive.stop();
+  foregroundGate.resetCold();
  }
  soundEnabled=next;
  try{localStorage.setItem(SOUND_KEY,soundEnabled?'on':'off');}catch(_){}
  renderSoundToggle();
  // Apple Music is external and must never be paused or ducked by this control.
- if(soundEnabled){
-  cp19Gesture();
-  // The very first ON tap may occur before the WAV buffer has decoded.
-  // Use the already preloaded original button sample as a direct-gesture fallback.
-  // Never invoke an external music pause or change another app's volume.
-  if(audioMode==='web'&&!soundBuffers.button){
-   if(!htmlSounds?.playButton())buttonSound();
-  }else buttonSound();
- }
+ if(soundEnabled)buttonSound(); // trusted click after release; G, no HTML duplicate
 });
 let config=normalizeConfig({work:60}),session=null,lastPhase=null,lastCuePhase=null,audioContext=null,wakeLock=null,wasHidden=false;
 const cp19KeepAlive=createCP19KeepAlive();
@@ -138,10 +141,10 @@ let cp19WorkletBusy=false;
 function cp19Status(message){
  if(!CP19)return;
  const el=document.querySelector?.('.preview-version');
- if(el)el.textContent=PREVIEW_MAIN_HOME?'미하일 0.8.20.19':`미하일 ${CP19_VERSION} · TEST ${CP19.label} · ${message}`;
+ if(el)el.textContent=PREVIEW_MAIN_HOME?'미하일 0.8.20.20':`미하일 ${CP19_VERSION} · TEST ${CP19.label} · ${message}`;
 }
 function cp19Gesture(event){
- if(!CP19||document.hidden||!soundEnabled||event?.target?.closest?.('#soundToggle'))return;
+ if(!CP19||document.hidden||!soundEnabled||!foregroundGate.allowDirect||event?.target?.closest?.('#soundToggle'))return;
  // Controls with their own first-tap sound must not be delayed by global
  // WebAudio resume/decode in capturing pointerdown. They unlock after playback.
  if(CP19F_UX&&event?.target?.closest?.('button,summary'))return;
@@ -153,7 +156,7 @@ function cp19Gesture(event){
   void unlockAudio();
  }catch(_){}
 }
-if(CP19?.prime)document.addEventListener('pointerdown',cp19Gesture,{capture:true});
+document.addEventListener('pointerup',event=>{if(event.isTrusted&&event.isPrimary!==false)cp19Gesture(event)},{capture:true});
 function readConfig(){return normalizeConfig({work:el.work.value,rest:el.rest.value,rounds:el.rounds.value,prepare:el.prepare.value});}
 function updateInputs(c){el.work.value=c.work;el.rest.value=c.rest;el.rounds.value=c.rounds;el.prepare.value=c.prepare;cp19Wheel?.refresh();}
 function restoreSavedSettings(){
@@ -183,7 +186,7 @@ function phaseNow(){return computePhase(config,elapsedNow());}
 // Return readiness: an immediate zero-preparation START can then queue its gong
 // until Safari enables Web Audio and decodes the original recording.
 function unlockAudio(){
- if(!soundEnabled)return Promise.resolve(false);
+ if(!soundEnabled||foregroundGate.recovering)return Promise.resolve(false);
   if(audioMode==='html')return Promise.resolve(false);
  try{
    if(audioContext?.state==='closed')webRetirement.retire();
@@ -335,8 +338,9 @@ function preloadSounds(){
   if(CP19&&Object.keys(SOUND_PATHS).some(name=>!soundBuffers[name])&&webRetirement.isCurrent(context,token))soundsLoading=null;
  });return soundsLoading;
 }
-function sound(type){
+function sound(type,{leadOffset=0,scheduled=false,direct=false}={}){
  if(!soundEnabled||document.hidden||audioInterruption.interrupted)return false;
+ if(direct?!foregroundGate.allowDirect:!foregroundGate.allowTimed)return false;
  if(audioMode==='html'&&htmlSounds){
    sessionMix.begin();
    return htmlSounds.play(type);
@@ -345,6 +349,7 @@ function sound(type){
  const kind=type==='start'?'start':(type==='end'||type==='done')?'end':(isPreview&&type==='ten-double')?'clack':(isPreview&&type==='button')?'button':'clack';
  const sample=soundBuffers[kind];
  if(!sample){
+   if(scheduled)return false;
    const loading=preloadSounds();
    if(type==='start'&&loading&&session)delayedStartGong.schedule(loading,{
      sessionRef:session,phaseKey:phaseNow().key
@@ -359,7 +364,7 @@ function sound(type){
  let played=false;
  for(const offset of offsets){
    try{
-     activeSounds.play({context:audioContext,buffer:sample,offset,volume:kind==='button'?.1944:kind==='clack'?.96:.9,category:kind==='button'?'button':'cue'});
+     activeSounds.play({context:audioContext,buffer:sample,offset:offset+leadOffset,volume:kind==='button'?.1944:kind==='clack'?.96:.9,category:kind==='button'?'button':'cue'});
      played=true;
    }catch(_){
      void diagnosticSender.report({event:'audio_failure',code:'AUDIO_PLAY_REJECTED',component:'audio',version:DIAGNOSTICS_VERSION});
@@ -374,13 +379,14 @@ function keepForegroundMix(){
 }
 function stopActiveAudio({fadeMs=16,preserveButton=false,preserveMix=false}={}){
  delayedStartGong.invalidate();
- activeSounds.stopAll({fadeMs,includeButton:!preserveButton});
+ ++gCueEpoch;if(!preserveButton)++buttonCueEpoch;
+ activeSounds.stopAll({fadeMs:btLeadMs>0?0:fadeMs,includeButton:!preserveButton});
  if(CP19?.transport==='worklet')cp19Worklet.stopAll();
  htmlSounds?.stopAll({includeButton:!preserveButton});
  if(!preserveMix)sessionMix.stop();
 }
 let audioRecoveryEpoch=0;
-let audioClockNeedsGesture=false;
+const foregroundGate=createForegroundAudioGate();
 function showAudioRecovery(show){if(el.audioRecover)el.audioRecover.hidden=!show;}
 const audioInterruption=createAudioInterruptionGuard({
  windowTarget:window,documentTarget:document,
@@ -391,73 +397,52 @@ const audioInterruption=createAudioInterruptionGuard({
    stopActiveAudio({fadeMs:web?0:reason==='blur'?12:0});
    if(CP19?.keepalive)cp19KeepAlive.stop();
    if(web)webWasInterrupted=true;
-   audioClockWatchdog.resetEpoch();
+   foregroundGate.interrupt();
    ++audioRecoveryEpoch;
  },
 });
 
-// TEST-only watchdog for an iOS WebKit AudioContext with state='running'
-// while its audio rendering clock no longer advances. Never replay past cues.
-const audioClockWatchdog=createAudioClockWatchdog({
- getContext:()=>audioContext,
- // iOS can freeze the audio clock even if the workout was never started.
- isEligible:()=>isPreview&&audioMode==='web'&&audioGestureSeen&&
-  !document.hidden&&!audioInterruption.interrupted&&
-  !audioClockNeedsGesture&&!!audioContext,
- onStall:ctx=>{
-  if(ctx!==audioContext)return;
-  console.warn('[RT AUDIO TEST] running clock frozen; one bounded recovery');
-  void recoverFrozenAudio(ctx);
- }
-});
-async function recoverFrozenAudio(ctx){
- const token=++audioRecoveryEpoch;
- const stillCurrent=()=>token===audioRecoveryEpoch&&ctx===audioContext&&
-  !document.hidden&&!audioInterruption.interrupted&&audioGestureSeen;
+// Gate all timer cues before drawing, not after sending them to Web Audio.
+function sampleForegroundAudio(){
+ if(!soundEnabled||!audioGestureSeen||document.hidden||audioInterruption.interrupted||audioMode!=='web')return;
+ const decision=foregroundGate.observe(audioContext,performance.now());
+ if(decision.cancel)stopActiveAudio({fadeMs:0,preserveMix:true});
+ if(decision.recover)void recoverForegroundAudio(audioContext,decision.token);
+ if(decision.ready)showAudioRecovery(false);
+ if(decision.needsGesture)showAudioRecovery(true);
+}
+async function recoverForegroundAudio(ctx,token){
+ const stillCurrent=()=>foregroundGate.isRecovery(token)&&ctx===audioContext&&soundEnabled&&
+  !document.hidden&&!audioInterruption.interrupted;
  if(!stillCurrent())return;
- const ok=await pulseStalledContext(ctx,{
-  isCurrent:stillCurrent,timeoutMs:900,settleMs:420
- });
+ // One bounded attempt per foreground epoch; never create a context without a gesture.
+ const ok=ctx?.state==='running'
+  ?await pulseStalledContext(ctx,{isCurrent:stillCurrent,timeoutMs:900,settleMs:420})
+  :await boundedResume(ctx,{isCurrent:stillCurrent,timeoutMs:900});
  if(!stillCurrent())return;
- audioClockNeedsGesture=!ok;
+ foregroundGate.finish(token,ok);
+ // Even a successful resume must pass two fresh clock samples.
  showAudioRecovery(!ok);
- console.warn('[RT AUDIO TEST] clock recovery',ok?'PASS':'NEEDS USER TAP');
+ console.info('[RT G-FINAL.20] recovery',ok?'VERIFY_CLOCK':'NEEDS_USER_TAP');
 }
 function endWebBackgroundReturn(){
  if(!isPreview||audioMode!=='web'||document.hidden||audioInterruption.interrupted)return;
- // No need to unlock a site the user has never interacted with.
- if(!audioGestureSeen)return;
- if(!webWasInterrupted&&audioContext?.state==='running')return;
+ if(!webWasInterrupted)return;
  webWasInterrupted=false;
- audioClockWatchdog.resetEpoch();
- const token=++audioRecoveryEpoch;
- let finished=false;
- const timeout=setTimeout(()=>{
-   if(!finished&&token===audioRecoveryEpoch&&!document.hidden)showAudioRecovery(true);
- },1500);
- void unlockAudio().then(ok=>{
-   finished=true;clearTimeout(timeout);
-   if(token!==audioRecoveryEpoch||document.hidden)return;
-   showAudioRecovery(!ok);
- }).catch(()=>{
-   finished=true;clearTimeout(timeout);
-   if(token===audioRecoveryEpoch&&!document.hidden)showAudioRecovery(true);
- });
+ foregroundGate.foreground();
+ if(!audioGestureSeen)foregroundGate.resetCold();
+ // No replay or blind resume on focus. The next foreground tick verifies actual progress.
+ lastPhase=null;lastCuePhase=null;
 }
 window.addEventListener('focus',endWebBackgroundReturn);
 el.audioRecover?.addEventListener('pointerdown',()=>cp19Haptics?.tap());
- el.audioRecover?.addEventListener('click',()=>{
-  if(document.hidden)return;
-  if(audioClockNeedsGesture&&audioContext){
-   stopActiveAudio({fadeMs:0});
-   webRetirement.retire(); // New context only within the direct user tap.
-   audioClockWatchdog.resetEpoch();
-   audioClockNeedsGesture=false;
-  }
-  const token=++audioRecoveryEpoch;
-  void unlockAudio().then(ok=>{
-    if(token===audioRecoveryEpoch&&!document.hidden)showAudioRecovery(!ok);
-  });
+el.audioRecover?.addEventListener('click',event=>{
+ if(!event.isTrusted||document.hidden||audioInterruption.interrupted||!soundEnabled)return;
+ stopActiveAudio({fadeMs:0,preserveMix:true});
+ foregroundGate.manualCheck();
+ if(audioContext)webRetirement.retire(); // Context recreation only from this real gesture.
+ audioGestureSeen=true;
+ void unlockAudio();
 });
 // Test host only: one-choice transport control, never rendered in production.
 // A mode change is allowed during a running test, but pauses the clock
@@ -600,6 +585,22 @@ window.addEventListener('orientationchange',()=>{lastClockLayout='';requestAnima
 window.visualViewport?.addEventListener?.('resize',()=>{lastClockLayout='';requestAnimationFrame(()=>fitClock(true));});
 window.addEventListener('focus',()=>{lastClockLayout='';requestAnimationFrame(()=>fitClock(true));});
 if('ResizeObserver' in window)new ResizeObserver(()=>fitClock()).observe(el.clock.parentElement);
+// High-water cursor prevents replay even after pause/background recovery.
+let btCursorSession=null,btCursor=null;
+function dispatchBluetoothCues(notify){
+ if(!session){btCursorSession=null;btCursor=null;return}
+ if(btCursorSession!==session){btCursorSession=session;btCursor=null}
+ if(session.status!=='running'||btLeadMs===0)return;
+ const elapsed=elapsedNow();
+ if(!notify||btCursor===null||document.hidden||audioInterruption.interrupted){
+  btCursor=Math.max(btCursor??0,elapsed+btLeadMs);return;
+ }
+ const plan=plannedCueWindow({config,elapsed,cursor:btCursor,lead:btLeadMs,computePhase,cueForPhaseTransition});
+ btCursor=plan.cursor;
+ if(!soundEnabled||!foregroundGate.allowTimed||audioContext?.state!=='running')return;
+ for(const cue of plan.events)sound(cue.type,{leadOffset:cue.offset,scheduled:true});
+}
+
 function draw({notify=true}={}) {
   const phase=session?phaseNow():computePhase({...config,prepare:0},0);
   const type=session?phase.type:'idle';
@@ -627,7 +628,7 @@ function draw({notify=true}={}) {
   el.start.disabled=!!el.settings.open;
   el.reset.disabled=!!el.settings.open;
   const locked=!!session&&type!=='done';
-  for(const input of [el.work,el.rest,el.rounds,el.prepare])input.disabled=locked;
+  for(const input of [el.work,el.rest,el.rounds,el.prepare,btLeadInput])input.disabled=locked;
   cp19Wheel?.refresh();
   // Unlike workout duration fields, audio QA settings stay selectable.
   if(audioModeSelect)audioModeSelect.disabled=false;
@@ -636,7 +637,8 @@ function draw({notify=true}={}) {
   // audio engines. Production preserves its original close-on-start behavior.
   if(locked&&el.settings.open&&!isPreview)el.settings.open=false;
   if(session&&session.status==='running'&&type==='done')releaseScreenOn();
-  if(notify&&session&&session.status==='running'&&lastPhase&&!document.hidden){
+  dispatchBluetoothCues(notify);
+  if(btLeadMs===0&&foregroundGate.allowTimed&&notify&&session&&session.status==='running'&&lastPhase&&!document.hidden){
     if(phase.key!==lastPhase.key){
       // Never replay a stale gong if WebKit delivers the phase-change callback
       // seconds late after the user returns to the app.
@@ -671,23 +673,17 @@ function startPause(){
     stopActiveAudio({preserveButton:isPreview,preserveMix:keepForegroundMix()});
     firstClackMeasured=false;
     if(cueLatencyLabel)cueLatencyLabel.textContent='Первый щелчок: задержка ещё не измерена';
-    if(audioClockNeedsGesture&&audioContext){
-     webRetirement.retire();audioClockWatchdog.resetEpoch();audioClockNeedsGesture=false;
+    if(foregroundGate.needsGesture){
+     if(audioContext)webRetirement.retire();foregroundGate.resetCold();
     }
-    const ready=unlockAudio();
     config=readConfig();updateInputs(config);
     session={status:'running',config,elapsedBeforeMs:0,resumedAt:Date.now()};
     el.settings.open=false;lastPhase=null;lastCuePhase=null;
     showAudioRecovery(false);++audioRecoveryEpoch;
-    if(config.prepare===0){
-      if(CP19?cp19CanPlayStartCue({contextState:audioContext?.state,bufferReady:!!soundBuffers.start,
-        transport:CP19.transport,workletReady:cp19Worklet.ready}):
-        (audioContext?.state==='running'&&soundBuffers.start))sound('start');
-      // When cold, play the existing HTML cue in this START gesture.
-      // Do not queue a second WebAudio gong if HTML playback was attempted.
-      else if(soundEnabled && !cp19DirectGestureFallback('start'))
-        delayedStartGong.schedule(ready,{sessionRef:session,phaseKey:phaseNow().key});
-    }else if(config.prepare<=5 && !sound('single'))cp19DirectGestureFallback('single');
+    // Unpredictable initial signal cannot be sent before START; G uses same bounded gesture.
+    if(config.prepare===0)gGestureCue('start');
+    else if(config.prepare<=5)gGestureCue('single');
+    else void unlockAudio();
     startupCuePlayed=config.prepare<=5;
     ensureScreenOn();
   } else if(session.status==='running'){
@@ -699,79 +695,52 @@ function startPause(){
   return startupCuePlayed;
 }
 function reset(){if(el.settings.open)return;showAudioRecovery(false);++audioRecoveryEpoch;stopActiveAudio({preserveButton:isPreview,preserveMix:keepForegroundMix()});session=null;lastPhase=null;lastCuePhase=null;config=readConfig();save();releaseScreenOn();draw({notify:false});}
-// First-tap iOS fallback: synchronous HTML play() attempt in the gesture.
-// Do not queue a duplicate cue or change external audio session state.
-function cp19DirectGestureFallback(type){
- if(!CP19||!soundEnabled||document.hidden||audioInterruption.interrupted||!htmlSounds)return false;
- return type==='button'?htmlSounds.playButton():htmlSounds.play(type);
-}
-function buttonSound(){
- if(!soundEnabled||!isPreview||document.hidden||audioInterruption.interrupted)return false;
+// G: synchronous resume in the release gesture, bounded deferred sound.
+let gCueEpoch=0;
+function gGestureCue(type){
+ if(!soundEnabled||document.hidden||audioInterruption.interrupted||audioMode!=='web'||!foregroundGate.allowDirect)return false;
+ const button=type==='button',kind=button?'button':type==='start'?'start':'clack';
+ const ticket=button?++buttonCueEpoch:++gCueEpoch;
+ const ref=session,phaseKey=button?null:phaseNow().key,pressedAt=performance.now();
  audioGestureSeen=true;
- const request=++buttonCueEpoch;
- if(audioMode==='html'&&htmlSounds){
-   sessionMix.begin();
-   return htmlSounds.playButton();
- }
- // Try the preloaded HTML button audio before new WebAudio work on a cold gesture.
- // Do not schedule a delayed WebAudio echo after the HTML attempt.
- if(CP19&&(!audioContext||audioContext.state!=='running'||!soundBuffers.button)){
-  const accepted=cp19DirectGestureFallback('button');
-  void Promise.resolve(unlockAudio()).catch(()=>{});
-  return accepted;
- }
- // Warm path uses the existing decoded Web Audio sample.
- const ready=(!audioContext||audioContext.state!=='running'||!soundBuffers.button)
-   ?unlockAudio():Promise.resolve(true);
- if(sound('button'))return true;
- // CP19 previously returned true for silent first taps when WAV had not decoded.
- // Use the preloaded matching HTML cue synchronously without a delayed echo.
- // If unavailable, allow the following click handler one retry.
- if(CP19){
-  const accepted=cp19DirectGestureFallback('button');
-  void Promise.resolve(ready).catch(()=>{});
-  return accepted;
- }
- // CP18 A/B only: try the original preloaded MP3 in this same gesture.
- // If that transport accepted the press, never add a delayed WebAudio echo.
- if(!CP19&&CP18_BUTTON_WINDOW_MS!==null&&htmlSounds?.playButton()){
-   void Promise.resolve(ready).catch(()=>{});
-   return true;
- }
- const pressedAt=Date.now();
- // Normal TEST root retains the original <=180ms policy, A/B uses 0 or 30.
- const maxLateMs=CP19?0:(CP18_BUTTON_WINDOW_MS===null?180:CP18_BUTTON_WINDOW_MS);
- if(maxLateMs>0){
-   void Promise.resolve(ready).then(ok=>{
-     const age=Date.now()-pressedAt;
-     if(ok&&request===buttonCueEpoch&&deferredButtonCueAllowed(age,maxLateMs)&&
-        !document.hidden&&!audioInterruption.interrupted)
-       sound('button');
-   }).catch(()=>{});
- }else{
-   // 0ms = no deferred replay, not an added delay to immediate playback.
-   void Promise.resolve(ready).catch(()=>{});
- }
- return true; // Prevent a duplicate sound on the later click.
+ try{
+  if(audioContext?.state==='closed')webRetirement.retire();
+  audioContext ||= new (window.AudioContext||window.webkitAudioContext)();
+  const context=audioContext,token=webRetirement.generation;
+  const valid=()=>soundEnabled&&!document.hidden&&!audioInterruption.interrupted&&audioMode==='web'&&foregroundGate.allowDirect&&
+   webRetirement.isCurrent(context,token)&&context.state==='running'&&performance.now()-pressedAt<=150&&
+   (button?ticket===buttonCueEpoch:ticket===gCueEpoch&&session===ref&&session?.status==='running'&&phaseNow().key===phaseKey&&elapsedNow()<=150);
+  if(context.state==='running'&&soundBuffers[kind])return valid()&&sound(type,{direct:true});
+  const resumed=context.state==='running'?Promise.resolve():context.resume();
+  const buffered=soundBuffers[kind]?Promise.resolve():Promise.resolve(preloadSounds());
+  void Promise.all([resumed,buffered]).then(()=>{if(valid()&&soundBuffers[kind])sound(type,{direct:true})}).catch(()=>{});
+  return true;
+ }catch(_){return false}
 }
-// Pointerdown plays the button sound in the direct iOS user gesture.
-// The later click performs the operation and does not play a duplicate.
+function buttonSound(){return gGestureCue('button')}
 function bindFastPress(target,action,{allowed=()=>true,suppress=()=>false}={}){
- let pressed=false;
+ let pointer=null,released=false;
  target?.addEventListener('pointerdown',event=>{
-   if(event.isPrimary===false||!allowed())return;
-   cp19Haptics?.tap();
-   if(CP19&&!CP19.prime)cp19Gesture();
-   if(suppress())return;
-   pressed=buttonSound();
+  pointer=null;released=false;
+  if(!event.isTrusted||event.isPrimary===false||event.button!==0||!allowed())return;
+  pointer=event.pointerId;cp19Haptics?.tap();
  });
- target?.addEventListener('pointercancel',()=>{pressed=false;});
- target?.addEventListener('click',()=>{
-   const played=pressed;pressed=false;
-   if(!allowed())return;
-   const skip=suppress();
-   action?.();
-   if(!skip&&!played)buttonSound();
+ target?.addEventListener('pointercancel',()=>{pointer=null;released=false;});
+ target?.addEventListener('pointerup',event=>{
+  const match=pointer!==null&&pointer===event.pointerId;pointer=null;
+  if(!match||!event.isTrusted||event.isPrimary===false||!allowed())return;
+  const hit=document.elementFromPoint?.(event.clientX,event.clientY);
+  if(hit&&!target.contains(hit))return;
+  released=true;
+  if(suppress()){audioGestureSeen=true;void unlockAudio();}
+  else buttonSound();
+ });
+ target?.addEventListener('click',event=>{
+  const hadRelease=released;released=false;pointer=null;
+  if(!allowed())return;
+  const skip=suppress();
+  if(event.isTrusted&&event.detail===0&&!hadRelease&&!skip)buttonSound();
+  action?.();
  });
 }
 function willStartCue(){
@@ -783,7 +752,7 @@ bindFastPress(el.reset,()=>reset(),{allowed:()=>!el.settings.open});
 el.form.addEventListener('input',event=>{if(event.target?.tagName==='SELECT')cp19Haptics?.picker();});
  el.form.addEventListener('change',event=>{
    if(event.target?.tagName==='SELECT')cp19Haptics?.picker();
-   if(!session){config=readConfig();save();draw({notify:false});}
+   if(!session&&event.target!==btLeadInput){config=readConfig();save();draw({notify:false});}
  });
 el.settings.addEventListener('toggle',()=>{
  document.body.classList.toggle('settings-visible',el.settings.open);
@@ -833,5 +802,5 @@ if(soundEnabled&&isPreview&&audioMode==='web'&&(window.AudioContext||window.webk
 }
 // A force-quit can restore a running countdown without an unlocked context.
 if(session?.status==='running'&&audioMode==='web')showAudioRecovery(true);
-setInterval(()=>{if(!document.hidden){draw({notify:true});audioClockWatchdog.sample();}},100);
+setInterval(()=>{if(!document.hidden){sampleForegroundAudio();draw({notify:true});}},100);
 if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));

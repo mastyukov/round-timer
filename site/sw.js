@@ -1,27 +1,31 @@
 // Offline-first service worker v0.8.19.3 CP18 A/B TEST. Avoid waiting for a blocked/throttled CDN.
 // App shell and audio must be served from local CacheStorage after first install.
-const CACHE_NAME = 'round-timer-shell-v0.8.20.19-final-graphite-ambient';
+const CACHE_NAME = 'round-timer-shell-v0.8.20.20-final-satin-g';
 const SHELL = [
   './',
   './index.html',
   './styles.css',
-  './styles.css?v=082019',
+  './styles.css?v=082020',
   './preview-variants-base.css',
-  './preview-variants-base.css?v=082019',
+  './preview-variants-base.css?v=082020',
   './preview-graphite.css',
-  './preview-graphite.css?v=082019',
+  './preview-graphite.css?v=082020',
   './preview-graphite-v2.css',
-  './preview-graphite-v2.css?v=082019',
+  './preview-graphite-v2.css?v=082020',
   './preview-graphite-deck.css',
-  './preview-graphite-deck.css?v=082019',
+  './preview-graphite-deck.css?v=082020',
   './preview-graphite-main-082014.css',
-  './preview-graphite-main-082014.css?v=082019',
+  './preview-graphite-main-082014.css?v=082020',
   './preview-graphite-musicfix.css',
-  './preview-graphite-musicfix.css?v=082019',
+  './preview-graphite-musicfix.css?v=082020',
   './graphite-polish-082016.css',
-  './graphite-polish-082016.css?v=082019',
+  './graphite-polish-082016.css?v=082020',
+  './graphite-pro-satin-light.css',
+  './graphite-pro-satin-light.css?v=082020',
   './app.mjs',
-  './app.mjs?v=082019',
+  './app.mjs?v=082020',
+  './foreground-audio-clock.mjs',
+  './bluetooth-lead.mjs',
   './preview-variants-clock-fit.mjs',
   './preview-audio-prewarm.mjs',
   './preview-ambient-audio-session.mjs',
@@ -46,14 +50,6 @@ const SHELL = [
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/apple-touch-icon.png',
-  './sounds/gong-start.mp3',
-  './sounds/gong-end.mp3',
-  './sounds/woodclack.mp3',
-  './sounds/studio-gong-start.mp3',
-  './sounds/studio-gong-end.mp3',
-  './sounds/woodclack-single.mp3',
-  './sounds/woodclack-double.mp3',
-  './sounds/button.mp3',
   './sounds/cp19-wav/button.wav',
   './sounds/cp19-wav/studio-gong-start.wav',
   './sounds/cp19-wav/studio-gong-end.wav',
@@ -77,7 +73,7 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
-  if (url.origin !== self.location.origin) return;
+  if (url.origin !== self.location.origin || !url.href.startsWith(self.registration.scope)) return;
   // Navigations are network-first to avoid an old root page masquerading as /test-f.html.
   // Audio/modules remain cache-first for reliable offline sports timing.
   event.respondWith((async () => {
@@ -93,7 +89,7 @@ self.addEventListener('fetch', event => {
       const exact = await cache.match(event.request, {ignoreSearch:true});
       if (exact) return exact;
       // Only a genuine root URL may use the root offline fallback.
-      if (/\/(?:index\.html)?$/.test(url.pathname)) {
+      if (url.pathname === new URL(self.registration.scope).pathname || url.pathname === new URL('index.html',self.registration.scope).pathname) {
         const root = await cache.match('./');
         if (root) return root;
       }

@@ -1,0 +1,88 @@
+{
+  "version": "0.8.20.20",
+  "base": "5982c471de1e7b7a186b1eeef9167987d242c20b",
+  "acceptedTest": "4fba250358b2d33135779366b0e3b15fa0ac8160",
+  "ownerAcceptance": "TEST.2 works; issue noted specifically with Bluetooth speaker music, no speaker or music on phone excellent; owner requested approved design and main release",
+  "previousEvidence": "TEST.1 OWNER_QA_FAIL; TEST.2 44+6 PASS_SCOPED; historical records remain in TEST",
+  "design": "Graphite Pro B Satin Light, CSS implementation; physical visual check pending",
+  "checks": [
+    {
+      "name": "exact source anchors",
+      "pass": true
+    },
+    {
+      "name": "app syntax",
+      "pass": true
+    },
+    {
+      "name": "sw syntax",
+      "pass": true
+    },
+    {
+      "name": "test syntax",
+      "pass": true
+    },
+    {
+      "name": "two audio helpers exact",
+      "pass": true
+    },
+    {
+      "name": "G audio logic exact except identity and storage",
+      "pass": true
+    },
+    {
+      "name": "timer loop exact",
+      "pass": true
+    },
+    {
+      "name": "gesture exact",
+      "pass": true
+    },
+    {
+      "name": "app original WAV settings",
+      "pass": true
+    },
+    {
+      "name": "settings continuity",
+      "pass": true
+    },
+    {
+      "name": "no new external diagnostic endpoint",
+      "pass": true
+    },
+    {
+      "name": "offline count and no duplicates",
+      "pass": true
+    },
+    {
+      "name": "all app imports cached",
+      "pass": true
+    },
+    {
+      "name": "all linked CSS cached",
+      "pass": true
+    },
+    {
+      "name": "stylesheet layout guard",
+      "pass": true
+    },
+    {
+      "name": "production title/version",
+      "pass": true
+    },
+    {
+      "name": "version gate preserves hashes",
+      "pass": true
+    },
+    {
+      "name": "version gate preserves prior checks",
+      "pass": true
+    },
+    {
+      "name": "workflow deployment gate not weakened",
+      "pass": true
+    }
+  ],
+  "scope": "source checks only, production CI/Pages and iPhone verification pending",
+  "bluetooth": "default 0; 400 ms owner calibrated; physical route delay remains possible"
+}

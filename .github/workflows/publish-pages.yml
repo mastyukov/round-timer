@@ -1,10 +1,10 @@
-name: Publish approved Round Timer FINAL v0.8.20.19 to GitHub Pages
+name: Publish approved Round Timer FINAL v0.8.20.20 to GitHub Pages
 on:
   push:
     branches: [main]
     paths:
       - 'site/**'
-      - 'tests/final-v082016.test.mjs'
+      - 'tests/final-v082020.test.mjs'
       - '.github/workflows/publish-pages.yml'
   workflow_dispatch:
 permissions:
@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   verify:
-    name: Verify FINAL v0.8.20.19 exact assets and source
+    name: Verify FINAL v0.8.20.20 exact assets and source
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
@@ -37,10 +37,10 @@ jobs:
           test ! -d site/receiver
           test ! -d site/project
           for f in site/*.mjs site/diagnostics/*.mjs site/sw.js; do node --check "$f"; done
-      - name: Verify pinned 0.8.20.16 timer, ambient/Prewarm, offline, visuals and all original sound hashes
+      - name: Verify pinned timer, accepted G audio, ambient/Prewarm, offline, visuals and all original sound hashes
         run: |
           set -euo pipefail
-          node --test tests/final-v082016.test.mjs tests/timer-model.test.mjs tests/diagnostic-schema.test.mjs tests/diagnostics-sender.test.mjs
+          node --test tests/final-v082020.test.mjs tests/timer-model.test.mjs tests/diagnostic-schema.test.mjs tests/diagnostics-sender.test.mjs
 
   deploy:
     name: Deploy production site/ ONLY after exact QA PASS

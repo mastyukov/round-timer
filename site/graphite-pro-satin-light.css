@@ -1,0 +1,55 @@
+/* APP-001 Graphite Pro B Satin Light — approved visual direction.
+   Paint-only refinements, except the requested 55:45 controls.
+   Countdown fit, phase colors, wheel row geometry and touch targets remain unchanged. */
+html.cp19f-ux body{
+ background:radial-gradient(ellipse at 50% 12%,#2c343c 0%,#1a2027 37%,#101419 76%,#0c1014 100%);
+}
+html.cp19f-ux #settings[open]{
+ background:linear-gradient(155deg,#525d68,#373f49 40%,#272f38 100%);
+ border-color:#aab3bc;
+}
+html.cp19f-ux #settings[open] summary{
+ background:linear-gradient(180deg,#78838d,#4e5965 18%,#343e49 68%,#2e3741);
+}
+html.cp19f-ux #settings[open] .settings-form{
+ background:linear-gradient(150deg,#444e58,#353e48 45%,#303943);
+}
+html.cp19f-ux #settings[open] .cp19f-inline-wheel{
+ border-color:#bbc2c8;
+ background:linear-gradient(90deg,#929aa2 0%,#b7bec5 8%,#d1d5da 50%,#b7bec5 92%,#8b949d 100%);
+ box-shadow:0 1px 0 #e8edf2a0,0 3px 7px #080b104a,inset 0 2px 6px #18212a70,inset 0 -3px 7px #18212a70;
+}
+html.cp19f-ux #settings[open] .cp19f-inline-wheel::before{
+ pointer-events:none;
+ background:linear-gradient(180deg,#222c367d 0%,#34414c40 18%,transparent 36%,transparent 64%,#34414c40 82%,#222c367d 100%);
+}
+html.cp19f-ux #settings[open] .cp19f-inline-wheel::after{
+ pointer-events:none;
+ box-shadow:inset 5px 0 9px #28354044,inset -5px 0 9px #28354044,inset 0 5px 9px #202a344d,inset 0 -5px 9px #202a344d;
+}
+html.cp19f-ux #settings[open] .cp19f-inline-center{
+ background:linear-gradient(180deg,#f0f2f4 0%,#e3e7ea 23%,#cdd3d8 60%,#e1e5e8 100%);
+ border-color:#f2f4f6;
+ box-shadow:0 1px 4px #27313b4d,inset 0 1px 2px #ffffffbf,inset 0 -2px 4px #8995a266;
+}
+html.cp19f-ux #settings[open] .cp19f-inline-option.is-current{
+ color:#171e25;opacity:1;
+ text-shadow:0 1px 0 #ffffffa6;
+}
+html.cp19f-ux #settings[open] .cp19f-inline-option:not(.is-current){
+ color:#3d454e;opacity:.68;
+}
+html.cp19f-ux .controls{
+ display:grid;
+ grid-template-columns:minmax(0,55fr) minmax(0,45fr);
+}
+html.cp19f-ux #settings[open] .cp19f-audio-row{
+ border-color:#9ca7b1;
+ background:linear-gradient(180deg,#56616c,#414c58 60%,#323c47);
+}
+html.cp19f-ux #settings[open] #btLeadInput{
+ font-variant-numeric:tabular-nums;
+}
+html.cp19f-ux #settings[open] #btLeadStatus{
+ color:#d4dbe2;
+}

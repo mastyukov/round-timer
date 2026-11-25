@@ -1,4 +1,4 @@
-name: FAST LANE CI — Round Timer FINAL v0.8.20.19 (checks only)
+name: FAST LANE CI — Round Timer FINAL v0.8.20.20 (checks only)
 on:
   push:
     branches:
@@ -36,7 +36,7 @@ jobs:
       - name: Final exact release, audio bytes, offline graph and timer model
         run: |
           set -euo pipefail
-          node --test tests/final-v082016.test.mjs tests/timer-model.test.mjs tests/diagnostic-schema.test.mjs tests/diagnostics-sender.test.mjs
+          node --test tests/final-v082020.test.mjs tests/timer-model.test.mjs tests/diagnostic-schema.test.mjs tests/diagnostics-sender.test.mjs
       - name: Keep safe Python diagnostics regression
         run: |
           python3 -m unittest discover -s tests -p 'test_*.py' -v
